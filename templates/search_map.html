@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Map</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/map.css') }}" type="text/css" media="all" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.0/dist/leaflet.css" integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ==" crossorigin="anonymous" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6" crossorigin="anonymous">
+  </head>
+  <body>
+    <div id="search">
+      <div class="p-3">
+          <h5>search</h5>
+          <div>
+
+  <form class="form-inline">
+    <input class="form-control m-2" name="q" value="{{ request.args.q or "" }}">
+    <button class="btn btn-primary m-2" type="submit">find</button>
+  </form>
+
+  {% if hits %}
+  {% for hit in hits %}
+  <div class="card mt-1">
+    <div class="card-body hit-card" id="hit-card-{{ loop.index0 }}">
+      <p><a href="#" class="hit-link" id="hit-link-{{ loop.index0 }}" data-bounding-box="{{ hit.boundingbox }}">{{ hit.display_name }}</a></p>
+      <p>
+      {{ hit.category }}
+      {{ hit.osm_type }}
+      </p>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+        </div>
+      </div>
+    </div>
+    <div id="map"></div>
+
+    <script>
+    var user_lat = {{ user_lat | tojson }};
+    var user_lon = {{ user_lon | tojson }};
+    var bbox_list = {{ (bbox_list or []) | tojson }};
+
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet@1.3.0/dist/leaflet.js" integrity="sha512-C7BBF9irt5R7hqbUm2uxtODlUVs+IsNu2UULGuZN7gM+k/mmeG4xvIEac01BtQa4YIkUpp23zZC4wIwuXaPMQA==" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/search_map.js') }}"></script>
+  </body>
+</html>
+

@@ -1,0 +1,33 @@
+#map {
+  position: absolute;
+  top: 0px;
+  bottom: 0px;
+  left: 0px;
+  right: 0px;
+  z-index: -1;
+}
+
+#search {
+  position: absolute;
+  overflow: auto;
+  top: 20px;
+  left: 20px;
+  bottom: 20px;
+  width: 25%;
+  background: lightgray;
+}
+
+#load-btn {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translate(-50%, 0);
+}
+
+#sidebar {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  bottom: 20px;
+  overflow: auto;
+}

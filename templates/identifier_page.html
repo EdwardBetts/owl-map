@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-2">
+
+  <h1>{{ label }} ({{ pid }})</h1>
+  <p><a href="{{ url_for('identifier_index') }}">Back to identifier index</a></p>
+
+  <p>Total number of items: {{ total }}</p>
+  <p>OSM total: {{ osm_total }}</p>
+
+  <table class="table">
+  {% for item in items %}
+  <tr>
+    <td>{{ item.label() }} ({{ item.qid }})</td>
+    <td>{{ ' / '.join(item.get_claim(pid)) }}</td>
+    <td>
+      {% for point in osm_points[item.qid] %}
+      {{ point.identifier }}: {{ point.tags.name }}<br />
+      {% endfor %}
+    </td>
+  </tr>
+  {% endfor %}
+  </table>
+
+</div>
+{% endblock %}

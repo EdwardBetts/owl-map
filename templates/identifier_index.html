@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="container my-2">
+
+  <table class="table">
+  {% for pid, osm_keys, label in property_map %}
+  <tr>
+    <td>
+      <a href="{{ url_for('identifier_page', pid=pid) }}">{{ label }}</a>
+      ({{ pid }})
+      <a href="https://wikidata.org/wiki/Property:{{ pid }}" target="_blank">
+        <i class="fa fa-wikidata"></i>
+        <i class="fa fa-external-link-square"></i>
+      </a>
+    </td>
+    <td>{{ '/'.join(osm_keys) }}</td>
+  </tr>
+  {% endfor %}
+  </table>
+
+</div>
+{% endblock %}

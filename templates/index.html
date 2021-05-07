@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-2">
+  <h1>OSM/Wikidata</h1>
+  <ul>
+    <li><a href="{{ url_for('map_start_page') }}">map</a></li>
+    <li><a href="{{ url_for('search_map_page') }}">map with search</a></li>
+    <li><a href="{{ url_for('search_page') }}">search</a></li>
+    <li><a href="{{ url_for('identifier_index') }}">identifies</a></li>
+  </ul>
+
+</div>
+{% endblock %}

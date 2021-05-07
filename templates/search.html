@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}{% endblock %}
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='leaflet/leaflet.css') }}">
+<style>
+#map {
+}
+</style>
+
+{% endblock %}
+
+{% block script %}
+<script src="https://unpkg.com/axios@latest"></script>
+<script src="{{ url_for('static', filename='leaflet/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+<script>
+  bbox_list = {{ bbox_list | tojson }};
+</script>
+
+{% endblock %}
+
+{% block content %}
+<div class="row">
+<div class="col-md-2">
+
+  <form class="form-inline">
+    <input class="form-control m-2" name="q" value="{{ request.args.q or "" }}">
+    <button class="btn btn-primary m-2" type="submit">find</button>
+  </form>
+
+  {% if hits %}
+  {% for hit in hits %}
+  <div class="card">
+    <div class="card-body">
+      <p><a href="#" class="hit-link" id="hit-link-{{ loop.index0 }}" data-bounding-box="{{ hit.boundingbox }}">{{ hit.display_name }}</a></p>
+      <p>
+      {{ hit.category }}
+      {{ hit.osm_type }}
+      </p>
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+<div class="col-md-8">
+
+  <div id="map" class="w-100 vh-100">
+  </div>
+
+</div>
+<div class="col-md-2">
+  <p>Duration: <span id="duration"></span> seconds</p>
+
+</div>
+</div>
+
+  {% endif %}
+
+</div>
+{% endblock %}
