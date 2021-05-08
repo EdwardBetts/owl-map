@@ -112,8 +112,10 @@ def get_osm_with_wikidata_tag(bbox):
             tagged.append(
                 {
                     "identifier": osm.identifier,
+                    "id": osm.id,
+                    "type": osm.type,
                     "url": osm.osm_url,
-                    "geoson": osm.geojson(),
+                    "geojson": osm.geojson(),
                     "centroid": list(osm.get_centroid()),
                     "name": name,
                     "wikidata": osm.tags["wikidata"],
