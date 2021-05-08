@@ -299,12 +299,12 @@ function load_wikidata_items() {
             if (item.description) {
               popup += `<br>description: ${item.description}`
             }
-            if (item.isa_list) {
+            if (item.isa_list && item.isa_list.length) {
               popup += '<br><strong>item type</strong>'
               for (const [index, isa_qid] of item.isa_list.entries()) {
                 var isa_url = 'https://www.wikidata.org/wiki/' + isa_qid;
                 var isa_label = isa_labels[isa_qid];
-                popup += `<br><a href="${isa_url}">${isa_label}</a> (${isa_qid})`;
+                popup += `<br><a href="${isa_url}" target="_blank">${isa_label}</a> (${isa_qid})`;
               }
             }
             if (item.image_list && item.image_list.length) {
@@ -347,7 +347,7 @@ function load_wikidata_items() {
         ${osm.name}:
         <a href="${osm.url}" target="_blank">${osm.identifier}</a>
         <br>
-        Wikidata tag: <a href="${wd_url}">${qid}</a>
+        Wikidata tag: <a href="${wd_url}" target="_blank">${qid}</a>
       </p>`
       marker.bindPopup(popup);
       marker.addTo(group);
