@@ -168,6 +168,16 @@ function isa_only(e) {
   checkbox_change();
 }
 
+function show_all_isa(e) {
+  e.preventDefault();
+  var checkbox_list = document.getElementsByClassName('isa-checkbox');
+  for (const checkbox of checkbox_list) {
+    checkbox.checked = true;
+  }
+
+  checkbox_change();
+}
+
 function checkbox_change() {
   var checkbox_list = document.getElementsByClassName('isa-checkbox');
   var ticked = [];
@@ -349,6 +359,8 @@ function load_wikidata_items() {
 
 
 };
+
+document.getElementById('show-all-isa').onclick = show_all_isa;
 
 var load_btn = document.getElementById('load-btn');
 load_btn.onclick = load_wikidata_items;
