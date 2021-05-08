@@ -82,28 +82,6 @@ def check_for_tagged_qid(qid):
     )
 
 
-def get_tagged_qid(qid):
-    tagged = []
-    seen = set()
-    for cls in (model.Point, model.Polygon, model.Line):
-        q = cls.query.filter(cls.tags.has_key("wikidata"), cls.tags["wikidata"] == qid)
-        for osm in q:
-            if osm.identifier in seen:
-                continue
-            seen.add(osm.identifier)
-            tagged.append(
-                {
-                    "identifier": osm.identifier,
-                    "url": osm.osm_url,
-                    # 'geoson': osm.geojson(),
-                    "centroid": list(osm.get_centroid()),
-                    "name": osm.name or "[no label]",
-                }
-            )
-
-    return tagged
-
-
 def make_envelope(bbox):
     west, south, east, north = [float(i) for i in bbox.split(",")]
     return func.ST_MakeEnvelope(west, south, east, north, srid)
@@ -362,13 +340,6 @@ def api_osm_objects():
     t1 = time() - t0
     print(f"OSM: {t1} seconds")
     return jsonify(success=True, objects=objects, duration=t1)
-
-
-@app.route("/api/1/item/Q<int:item_id>")
-def api_item_detail(item_id):
-    qid = f"Q{item_id}"
-    tagged = get_tagged_qid(qid)
-    return jsonify(qid=qid, tagged=bool(tagged), info=tagged)
 
 
 @app.route("/api/1/search")
