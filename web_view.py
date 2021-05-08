@@ -3,7 +3,7 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
-from matcher import nominatim, model, database
+from matcher import nominatim, model, database, commons
 from collections import Counter
 from time import time
 import GeoIP
@@ -162,11 +162,13 @@ def get_markers(all_items):
         if "en" not in item.labels:
             continue
         locations = [list(i.get_lat_lon()) for i in item.locations]
+        image_filenames = item.get_claim("P18")
         item = {
             "qid": item.qid,
             "label": item.label(),
             "description": item.description(),
             "markers": locations,
+            "image_list": image_filenames,
             "isa_list": [v["id"] for v in item.get_claim("P31")],
         }
         items.append(item)
@@ -198,6 +200,13 @@ def index_page():
 @app.route("/identifier")
 def identifier_index():
     return render_template("identifier_index.html", property_map=property_map)
+
+
+@app.route("/commons/<filename>")
+def get_commons_image(filename):
+    detail = commons.image_detail([filename], thumbheight=250, thumbwidth=250)
+    image = detail[filename]
+    return redirect(image["thumburl"])
 
 
 @app.route("/identifier/<pid>")

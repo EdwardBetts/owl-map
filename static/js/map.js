@@ -297,6 +297,9 @@ function load_wikidata_items() {
                 popup += `<br><a href="${isa_url}">${isa_label}</a> (${isa_qid})`;
               }
             }
+            if (item.image_list && item.image_list.length) {
+              popup += `<br><img src="/commons/${item.image_list[0]}">`;
+            }
             popup += '</p>';
             marker.bindPopup(popup);
             marker.addTo(group);
