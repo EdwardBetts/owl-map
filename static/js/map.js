@@ -1,7 +1,5 @@
 'use strict';
 
-// Create a map
-
 var options = {};
 if (start_lat || start_lng) {
     start_lat = start_lat.toFixed(5);
@@ -351,6 +349,14 @@ function load_wikidata_items() {
       </p>`
       marker.bindPopup(popup);
       marker.addTo(group);
+
+      if (osm.type != 'node' && osm.geojson) {
+        var mapStyle = {fillOpacity: 0};
+        var geojson = L.geoJSON(null, {style: mapStyle});
+        geojson.addTo(map);
+        geojson.addData(osm.geojson);
+        console.log(osm.geojson);
+      }
     });
 
     osm_loaded = true;
