@@ -3,7 +3,7 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
-from matcher import nominatim, model, database, commons
+from matcher import nominatim, model, database, commons, wikidata, wikidata_api
 from collections import Counter
 from time import time
 import GeoIP
@@ -15,6 +15,7 @@ app.debug = True
 
 DB_URL = "postgresql:///matcher"
 database.init_db(DB_URL)
+entity_keys = {"labels", "sitelinks", "aliases", "claims", "descriptions", "lastrevid"}
 
 property_map = [
     ("P238", ["iata"], "IATA airport code"),
@@ -301,6 +302,29 @@ def get_isa_count(items):
     return isa_count.most_common()
 
 
+def get_and_save_item(qid):
+    entity = wikidata_api.get_entity(qid)
+    if entity["id"] != qid:
+        print(f'redirect {qid} -> {entity["id"]}')
+        return
+
+    coords = wikidata.get_entity_coords(entity["claims"])
+
+    item_id = int(qid[1:])
+    obj = {k: v for k, v in entity.items() if k in entity_keys}
+    try:
+        item = model.Item(item_id=item_id, **obj)
+    except TypeError:
+        print(qid)
+        print(f'{entity["pageid"]=} {entity["ns"]=} {entity["type"]=}')
+        print(entity.keys())
+        raise
+    item.locations = model.location_objects(coords)
+    database.session.add(item)
+
+    return item
+
+
 @app.route("/api/1/items")
 def api_wikidata_items():
     bounds = request.args.get("bounds")
@@ -318,6 +342,9 @@ def api_wikidata_items():
     isa_count = []
     for qid, count in counts:
         item = isa_items.get(qid)
+        if not item:
+            item = get_and_save_item(qid)
+
         label = item.label() if item else "[missing]"
         isa = {
             "qid": qid,
