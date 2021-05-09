@@ -21,10 +21,19 @@ var osm_loaded = false;
 var loading = document.getElementById("loading");
 var load_text = document.getElementById("load-text");
 var isa_card = document.getElementById("isa-card");
+var checkbox_list = document.getElementsByClassName("isa-checkbox");
 var isa_labels = {};
 var connections = {};
 map.addLayer(group);
 map.zoomControl.setPosition("topright");
+
+map.on("moveend", function (e) {
+  var zoom = map.getZoom();
+  var c = map.getCenter();
+  var lat = c.lat.toFixed(5);
+  var lng = c.lng.toFixed(5);
+  history.replaceState(null, null, `/map/${zoom}/${lat}/${lng}`);
+});
 
 var blueMarker = L.ExtraMarkers.icon({
   icon: "fa-wikidata",
@@ -74,16 +83,17 @@ var osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 
 osm.addTo(map);
 
+function load_complete() {
+  loading.classList.add("visually-hidden");
+  load_text.classList.remove("visually-hidden");
+}
+
 function update_wikidata() {
   if (
     Object.keys(wikidata_items).length === 0 ||
     Object.keys(osm_objects).length === 0
   ) {
-    if (wikidata_loaded && osm_loaded) {
-      loading.classList.add("visually-hidden");
-      load_text.classList.remove("visually-hidden");
-    }
-
+    if (wikidata_loaded && osm_loaded) load_complete();
     return;
   }
 
@@ -116,16 +126,13 @@ function update_wikidata() {
     });
   }
 
-  loading.classList.add("visually-hidden");
-  load_text.classList.remove("visually-hidden");
+  load_complete();
 }
 
 function isa_only(e) {
   e.preventDefault();
 
   var this_id = e.target.parentNode.childNodes[0].id;
-
-  var checkbox_list = document.getElementsByClassName("isa-checkbox");
 
   for (const checkbox of checkbox_list) {
     checkbox.checked = checkbox.id == this_id;
@@ -136,7 +143,7 @@ function isa_only(e) {
 
 function show_all_isa(e) {
   e.preventDefault();
-  var checkbox_list = document.getElementsByClassName("isa-checkbox");
+
   for (const checkbox of checkbox_list) {
     checkbox.checked = true;
   }
@@ -145,12 +152,9 @@ function show_all_isa(e) {
 }
 
 function checkbox_change() {
-  var checkbox_list = document.getElementsByClassName("isa-checkbox");
   var ticked = [];
   for (const checkbox of checkbox_list) {
-    if (checkbox.checked) {
-      ticked.push(checkbox.id.substr(4));
-    }
+    if (checkbox.checked) ticked.push(checkbox.id.substr(4));
   }
 
   for (const qid in wikidata_items) {
@@ -340,14 +344,7 @@ function load_wikidata_items() {
   });
 }
 
-document.getElementById("show-all-isa").onclick = show_all_isa;
-
-var load_btn = document.getElementById("load-btn");
-load_btn.onclick = load_wikidata_items;
-
-var search_btn = document.getElementById("search-btn");
-var search_form = document.getElementById("search-form");
-search_form.onsubmit = function (e) {
+document.getElementById("search-form").onsubmit = function (e) {
   e.preventDefault();
   var search_text = document.getElementById("search-text").value.trim();
   if (!search_text) return;
@@ -373,10 +370,5 @@ search_form.onsubmit = function (e) {
   });
 };
 
-map.on("moveend", function (e) {
-  var zoom = map.getZoom();
-  var c = map.getCenter();
-  var lat = c.lat.toFixed(5);
-  var lng = c.lng.toFixed(5);
-  history.replaceState(null, null, `/map/${zoom}/${lat}/${lng}`);
-});
+document.getElementById("load-btn").onclick = load_wikidata_items;
+document.getElementById("show-all-isa").onclick = show_all_isa;
