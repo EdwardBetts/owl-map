@@ -12,7 +12,6 @@ if (start_lat || start_lng) {
 }
 
 var map = L.map("map", options);
-var group = L.featureGroup();
 var items = {};
 var wikidata_items = {};
 var osm_objects = {};
@@ -23,8 +22,7 @@ var load_text = document.getElementById("load-text");
 var isa_card = document.getElementById("isa-card");
 var checkbox_list = document.getElementsByClassName("isa-checkbox");
 var isa_labels = {};
-var connections = {};
-map.addLayer(group);
+
 map.zoomControl.setPosition("topright");
 
 map.on("moveend", function (e) {
@@ -88,6 +86,17 @@ function load_complete() {
   load_text.classList.remove("visually-hidden");
 }
 
+function add_to_feature_group(qid, thing) {
+  if (items[qid] === undefined) items[qid] = {};
+  if (items[qid].group === undefined) items[qid].group = L.featureGroup();
+
+  var group = items[qid].group;
+
+  thing.addTo(group);
+
+  return group;
+}
+
 function update_wikidata() {
   if (
     Object.keys(wikidata_items).length === 0 ||
@@ -113,7 +122,8 @@ function update_wikidata() {
       marker_data.marker.setIcon(greenMarker);
       osm_list.forEach((osm) => {
         var path = [osm.centroid, marker_data];
-        var polyline = L.polyline(path, { color: "green" }).addTo(group);
+        var polyline = L.polyline(path, { color: "green" });
+        add_to_feature_group(qid, polyline);
         item.lines.push(polyline);
       });
     });
@@ -157,49 +167,19 @@ function checkbox_change() {
     if (checkbox.checked) ticked.push(checkbox.id.substr(4));
   }
 
-  for (const qid in wikidata_items) {
-    var item = wikidata_items[qid];
-    const item_isa_list = wikidata_items[qid]["isa_list"];
+  for (const qid in items) {
+    var item = items[qid];
+
+    if (item.isa_list === undefined) continue;
+    const item_isa_list = item.isa_list;
     const intersection = ticked.filter((isa_qid) =>
       item_isa_list.includes(isa_qid)
     );
-    if (item.lines) {
-      item.lines.forEach((line) => {
-        if (intersection.length) {
-          line.addTo(group);
-        } else {
-          line.removeFrom(group);
-        }
-      });
-    }
 
-    item.markers.forEach((marker_data) => {
-      var marker = marker_data.marker;
-      if (intersection.length) {
-        marker.addTo(group);
-      } else {
-        marker.removeFrom(group);
-      }
-    });
-
-    if (osm_objects[qid]) {
-      osm_objects[qid].forEach((osm) => {
-        if (intersection.length) {
-          osm.marker.addTo(group);
-        } else {
-          osm.marker.removeFrom(group);
-        }
-      });
-    }
-
-    if (items[qid]) {
-      items[qid].geojson.forEach((geojson) => {
-        if (intersection.length) {
-          geojson.addTo(map);
-        } else {
-          geojson.removeFrom(map);
-        }
-      });
+    if (intersection.length) {
+      item.group.addTo(map);
+    } else {
+      item.group.removeFrom(map);
     }
   }
 }
@@ -247,6 +227,7 @@ function set_isa_list(isa_count) {
 
 function add_wikidata_marker(item, marker_data) {
   var icon = blueMarker;
+  var qid = item.qid;
   var label = `${item.label} (${item.qid})`;
   var marker = L.marker(marker_data, { icon: icon });
   // var tooltip = marker.bindTooltip(item.qid, {permanent: true, direction: 'bottom', opacity: 0.5});
@@ -269,7 +250,8 @@ function add_wikidata_marker(item, marker_data) {
   }
   popup += "</p>";
   marker.bindPopup(popup);
-  marker.addTo(group);
+  var group = add_to_feature_group(item.qid, marker);
+  group.addTo(map);
   marker_data.marker = marker;
 }
 
@@ -291,13 +273,17 @@ function load_wikidata_items() {
 
   axios.get(items_url, { params: params }).then((response) => {
     set_isa_list(response.data.isa_count);
-    var items = response.data.items;
-    items.forEach((item) => {
+    var load_items = response.data.items;
+    load_items.forEach((item) => {
+      var qid = item.qid;
       if (item.qid in wikidata_items) return;
       item.markers.forEach((marker_data) =>
         add_wikidata_marker(item, marker_data)
       );
       wikidata_items[item.qid] = item;
+
+      if (items[qid] === undefined) items[qid] = {};
+      items[qid].isa_list = item.isa_list;
     });
 
     wikidata_loaded = true;
@@ -324,12 +310,13 @@ function load_wikidata_items() {
         Wikidata tag: <a href="${wd_url}" target="_blank">${qid}</a>
       </p>`;
       marker.bindPopup(popup);
-      marker.addTo(group);
+      var group = add_to_feature_group(qid, marker);
+      group.addTo(map);
 
       if (osm.type != "node" && osm.geojson) {
         var mapStyle = { fillOpacity: 0 };
         var geojson = L.geoJSON(null, { style: mapStyle });
-        geojson.addTo(map);
+        add_to_feature_group(qid, geojson);
         geojson.addData(osm.geojson);
 
         if (items[qid] === undefined) items[qid] = {};
@@ -366,7 +353,6 @@ document.getElementById("search-form").onsubmit = function (e) {
       e.appendChild(a);
       search_results.appendChild(e);
     });
-    console.log(response.data);
   });
 };
 
