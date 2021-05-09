@@ -91,9 +91,7 @@ function add_to_feature_group(qid, thing) {
   if (items[qid].group === undefined) items[qid].group = L.featureGroup();
 
   var group = items[qid].group;
-
   thing.addTo(group);
-
   return group;
 }
 
@@ -110,21 +108,19 @@ function update_wikidata() {
     var osm_list = osm_objects[qid];
 
     var item = wikidata_items[qid];
-    if (!item) {
-      osm_list.forEach((osm) => {
-        osm.marker.setIcon(osmOrangeMarker);
-      });
-      continue;
-    }
 
-    if (item.lines === undefined) item.lines = [];
+    osm_list.forEach((osm) => {
+      osm.marker.setIcon(item ? osmYellowMarker : osmOrangeMarker);
+    });
+
+    if (!item) continue;
+
     item.markers.forEach((marker_data) => {
       marker_data.marker.setIcon(greenMarker);
       osm_list.forEach((osm) => {
         var path = [osm.centroid, marker_data];
         var polyline = L.polyline(path, { color: "green" });
         add_to_feature_group(qid, polyline);
-        item.lines.push(polyline);
       });
     });
   }
@@ -316,13 +312,8 @@ function load_wikidata_items() {
       if (osm.type != "node" && osm.geojson) {
         var mapStyle = { fillOpacity: 0 };
         var geojson = L.geoJSON(null, { style: mapStyle });
-        add_to_feature_group(qid, geojson);
         geojson.addData(osm.geojson);
-
-        if (items[qid] === undefined) items[qid] = {};
-        if (items[qid].geojson === undefined) items[qid].geojson = [];
-
-        items[qid].geojson.push(geojson);
+        add_to_feature_group(qid, geojson);
       }
     });
 
