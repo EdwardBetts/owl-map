@@ -68,45 +68,11 @@ if (!start_lat || !start_lng) {
   ]);
 }
 
-// Add OpenStreetMap layer
 var osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
 });
 
 osm.addTo(map);
-
-function check_items(items) {
-  if (items.length === 0) return;
-
-  var item = items.shift();
-  var qid = item.qid;
-
-  var markers_url = `/api/1/item/${qid}`;
-  axios.get(markers_url).then((response) => {
-    // console.log(response.data, item);
-    response.data.info.forEach((osm) => {
-      var icon = osmYellowMarker;
-      var marker = L.marker(osm.centroid, { title: osm.name, icon: icon });
-      var popup = `
-      <p>
-        <a href="${osm.url}" target="_blank">${osm.identifier}</a>: ${osm.name}
-      </p>`;
-      marker.bindPopup(popup);
-      marker.addTo(group);
-    });
-    item.markers.forEach((marker_data) => {
-      var marker = marker_data.marker;
-      var icon = response.data.tagged ? greenMarker : redMarker;
-      marker.setIcon(icon);
-
-      response.data.info.forEach((osm) => {
-        var path = [osm.centroid, marker_data];
-        var polyline = L.polyline(path, { color: "green" }).addTo(map);
-      });
-    });
-    if (items.length) check_items(items);
-  });
-}
 
 function update_wikidata() {
   if (
