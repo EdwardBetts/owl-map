@@ -13,6 +13,7 @@ if (start_lat || start_lng) {
 
 var map = L.map("map", options);
 var group = L.featureGroup();
+var items = {};
 var wikidata_items = {};
 var osm_objects = {};
 var wikidata_loaded = false;
@@ -210,16 +211,23 @@ function checkbox_change() {
 
     if(osm_objects[qid]) {
       osm_objects[qid].forEach(osm => {
-      if (intersection.length) {
-        osm.marker.addTo(group);
-      } else {
-        osm.marker.removeFrom(group);
-      }
+        if (intersection.length) {
+          osm.marker.addTo(group);
+        } else {
+          osm.marker.removeFrom(group);
+        }
       });
     }
 
-
-
+    if(items[qid]) {
+      items[qid].geojson.forEach(geojson => {
+        if (intersection.length) {
+          geojson.addTo(map);
+        } else {
+          geojson.removeFrom(map);
+        }
+      });
+    }
   }
 }
 
@@ -262,6 +270,34 @@ function set_isa_list(isa_count) {
   });
 }
 
+function add_wikidata_marker(item, marker_data) {
+    var icon = blueMarker;
+    var label = `${item.label} (${item.qid})`
+    var marker = L.marker(marker_data, {icon: icon});
+    // var tooltip = marker.bindTooltip(item.qid, {permanent: true, direction: 'bottom', opacity: 0.5});
+    var wd_url = 'https://www.wikidata.org/wiki/' + item.qid;
+    var popup = '<p><strong>Wikidata item</strong><br>'
+    popup += `<a href="${wd_url}" target="_blank">${item.label}</a> (${item.qid})`
+    if (item.description) {
+      popup += `<br>description: ${item.description}`
+    }
+    if (item.isa_list && item.isa_list.length) {
+      popup += '<br><strong>item type</strong>'
+      for (const [index, isa_qid] of item.isa_list.entries()) {
+        var isa_url = 'https://www.wikidata.org/wiki/' + isa_qid;
+        var isa_label = isa_labels[isa_qid];
+        popup += `<br><a href="${isa_url}" target="_blank">${isa_label}</a> (${isa_qid})`;
+      }
+    }
+    if (item.image_list && item.image_list.length) {
+      popup += `<br><img src="/commons/${item.image_list[0]}">`;
+    }
+    popup += '</p>';
+    marker.bindPopup(popup);
+    marker.addTo(group);
+    marker_data.marker = marker;
+}
+
 function load_wikidata_items() {
   var checkbox_list = document.getElementsByClassName('isa-checkbox');
 
@@ -276,7 +312,6 @@ function load_wikidata_items() {
   var bounds = map.getBounds();
   console.log("map moved", bounds.toBBoxString());
 
-  // var items_to_check = [];
   var params = {bounds: bounds.toBBoxString()};
   var items_url = "/api/1/items";
 
@@ -286,46 +321,14 @@ function load_wikidata_items() {
     items.forEach(item => {
         if (item.qid in wikidata_items)
             return;
-        item.markers.forEach(marker_data => {
-            // var icon = marker.tagged ? greenMarker : blueMarker;
-            var icon = blueMarker;
-            var label = `${item.label} (${item.qid})`
-            var marker = L.marker(marker_data, {title: label, icon: icon});
-            var wd_url = 'https://www.wikidata.org/wiki/' + item.qid;
-            var popup = '<p><strong>Wikidata item</strong><br>'
-            popup += `<a href="${wd_url}" target="_blank">${item.label}</a> (${item.qid})`
-            if (item.description) {
-              popup += `<br>description: ${item.description}`
-            }
-            if (item.isa_list && item.isa_list.length) {
-              popup += '<br><strong>item type</strong>'
-              for (const [index, isa_qid] of item.isa_list.entries()) {
-                var isa_url = 'https://www.wikidata.org/wiki/' + isa_qid;
-                var isa_label = isa_labels[isa_qid];
-                popup += `<br><a href="${isa_url}" target="_blank">${isa_label}</a> (${isa_qid})`;
-              }
-            }
-            if (item.image_list && item.image_list.length) {
-              popup += `<br><img src="/commons/${item.image_list[0]}">`;
-            }
-            popup += '</p>';
-            marker.bindPopup(popup);
-            marker.addTo(group);
-            marker_data.marker = marker;
-        });
+        item.markers.forEach(marker_data => add_wikidata_marker(item, marker_data));
         wikidata_items[item.qid] = item;
 
-
-        // items_to_check.push(item);
     });
 
     wikidata_loaded = true;
     isa_card.classList.remove("visually-hidden");
     update_wikidata();
-
-    // duration_span.innerText = response.data.duration;
-    // check_items(items_to_check);
-
   });
   var osm_objects_url = "/api/1/osm";
   axios.get(osm_objects_url, {params: params}).then(response => {
@@ -355,7 +358,13 @@ function load_wikidata_items() {
         var geojson = L.geoJSON(null, {style: mapStyle});
         geojson.addTo(map);
         geojson.addData(osm.geojson);
-        console.log(osm.geojson);
+
+        if (items[qid] === undefined)
+          items[qid] = {};
+        if (items[qid].geojson === undefined)
+          items[qid].geojson = [];
+
+        items[qid].geojson.push(geojson);
       }
     });
 
