@@ -96,7 +96,9 @@ def get_osm_with_wikidata_tag(bbox):
     seen = set()
     for cls in (model.Point, model.Polygon, model.Line):
         q = cls.query.filter(
-            cls.tags.has_key("wikidata"), func.ST_Covers(db_bbox, cls.way)
+            cls.tags.has_key("wikidata"),
+            func.ST_Intersects(db_bbox, cls.way),
+            func.ST_Area(cls.way) < 20 * func.ST_Area(db_bbox),
         )
         for osm in q:
             if osm.identifier in seen:
