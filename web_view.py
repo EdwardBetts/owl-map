@@ -373,6 +373,43 @@ def api_osm_objects():
     return jsonify(success=True, objects=objects, duration=t1)
 
 
+@app.route("/api/1/missing")
+def api_missing_wikidata_items():
+    qids_arg = request.args.get("qids")
+    qids = qids_arg.split(",")
+    if not qids or not qids[0]:
+        return jsonify(success=True, items=[], isa_count=[])
+
+    db_items = []
+    for qid in qids:
+        item = model.Item.query.get(qid[1:])
+        if not item:
+            item = get_and_save_item(qid)
+        db_items.append(item)
+    items = get_markers(db_items)
+    counts = get_isa_count(db_items)
+    isa_ids = [qid[1:] for qid, count in counts]
+    isa_items = {
+        isa.qid: isa for isa in model.Item.query.filter(model.Item.item_id.in_(isa_ids))
+    }
+
+    isa_count = []
+    for qid, count in counts:
+        item = isa_items.get(qid)
+        if not item:
+            item = get_and_save_item(qid)
+
+        label = item.label() if item else "[missing]"
+        isa = {
+            "qid": qid,
+            "count": count,
+            "label": label,
+        }
+        isa_count.append(isa)
+
+    return jsonify(success=True, items=items, isa_count=isa_count)
+
+
 @app.route("/api/1/search")
 def api_search():
     q = request.args["q"]

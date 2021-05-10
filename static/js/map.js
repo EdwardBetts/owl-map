@@ -22,6 +22,11 @@ var load_text = document.getElementById("load-text");
 var isa_card = document.getElementById("isa-card");
 var checkbox_list = document.getElementsByClassName("isa-checkbox");
 var isa_labels = {};
+var items_url = "/api/1/items";
+var osm_objects_url = "/api/1/osm";
+var missing_url = "/api/1/missing";
+
+var isa_count = {};
 
 map.zoomControl.setPosition("topright");
 
@@ -95,13 +100,41 @@ function add_to_feature_group(qid, thing) {
   return group;
 }
 
-function update_wikidata() {
+function update_wikidata(check_for_missing = true) {
   if (
     Object.keys(wikidata_items).length === 0 ||
     Object.keys(osm_objects).length === 0
   ) {
     if (wikidata_loaded && osm_loaded) load_complete();
     return;
+  }
+
+  if (check_for_missing) {
+    var missing_qids = [];
+    for (const qid in osm_objects) {
+      var item = wikidata_items[qid];
+      if (!item) missing_qids.push(qid);
+    }
+    console.log(missing_qids);
+
+    if (missing_qids.length) {
+      var params = { qids: missing_qids.join(",") };
+      axios.get(missing_url, { params: params }).then((response) => {
+        console.log(response.data.items);
+
+        response.data.isa_count.forEach((isa) => {
+          isa_labels[isa.qid] = isa.label;
+          if (isa_count[isa.qid] === undefined) {
+            isa_count[isa.qid] = isa;
+          } else {
+            isa_count[isa.qid].count += 1;
+          }
+        });
+
+        process_wikidata_items(response.data.items);
+        update_wikidata(false);
+      });
+    }
   }
 
   for (const qid in osm_objects) {
@@ -132,6 +165,13 @@ function update_wikidata() {
     });
   }
 
+  var isa_count_values = Object.values(isa_count);
+  isa_count_values.sort((a, b) => {
+    b.count - a.count;
+  });
+  console.log(isa_count_values);
+
+  set_isa_list(isa_count_values);
   load_complete();
 }
 
@@ -185,7 +225,6 @@ function set_isa_list(isa_count) {
   var isa_list = document.getElementById("isa-list");
   isa_list.innerHTML = "";
   isa_count.forEach((isa) => {
-    isa_labels[isa.qid] = isa.label;
     var isa_id = `isa-${isa.qid}`;
     var e = document.createElement("div");
     e.setAttribute("class", "isa-item");
@@ -251,6 +290,20 @@ function add_wikidata_marker(item, marker_data) {
   marker_data.marker = marker;
 }
 
+function process_wikidata_items(load_items) {
+  load_items.forEach((item) => {
+    var qid = item.qid;
+    if (item.qid in wikidata_items) return;
+    item.markers.forEach((marker_data) =>
+      add_wikidata_marker(item, marker_data)
+    );
+    wikidata_items[item.qid] = item;
+
+    if (items[qid] === undefined) items[qid] = {};
+    items[qid].isa_list = item.isa_list;
+  });
+}
+
 function load_wikidata_items() {
   var checkbox_list = document.getElementsByClassName("isa-checkbox");
 
@@ -265,28 +318,22 @@ function load_wikidata_items() {
   console.log("map moved", bounds.toBBoxString());
 
   var params = { bounds: bounds.toBBoxString() };
-  var items_url = "/api/1/items";
 
   axios.get(items_url, { params: params }).then((response) => {
-    set_isa_list(response.data.isa_count);
-    var load_items = response.data.items;
-    load_items.forEach((item) => {
-      var qid = item.qid;
-      if (item.qid in wikidata_items) return;
-      item.markers.forEach((marker_data) =>
-        add_wikidata_marker(item, marker_data)
-      );
-      wikidata_items[item.qid] = item;
-
-      if (items[qid] === undefined) items[qid] = {};
-      items[qid].isa_list = item.isa_list;
+    response.data.isa_count.forEach((isa) => {
+      isa_count[isa.qid] = isa;
+      isa_labels[isa.qid] = isa.label;
     });
+
+    // set_isa_list(response.data.isa_count);
+
+    process_wikidata_items(response.data.items);
 
     wikidata_loaded = true;
     isa_card.classList.remove("visually-hidden");
     update_wikidata();
   });
-  var osm_objects_url = "/api/1/osm";
+
   axios.get(osm_objects_url, { params: params }).then((response) => {
     console.log(`${response.data.duration} seconds`);
     response.data.objects.forEach((osm) => {
