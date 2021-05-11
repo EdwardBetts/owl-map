@@ -150,10 +150,12 @@ function update_wikidata(check_for_missing = true) {
 
     item.markers.forEach((marker_data) => {
       marker_data.marker.setIcon(greenMarker);
+      if (!items[qid].lines) items[qid].lines = [];
       osm_list.forEach((osm) => {
         var path = [osm.centroid, marker_data];
         var polyline = L.polyline(path, { color: "green" });
         add_to_feature_group(qid, polyline);
+        items[qid].lines.push(polyline);
       });
     });
   }
@@ -166,11 +168,6 @@ function update_wikidata(check_for_missing = true) {
   }
 
   var isa_count_values = Object.values(isa_count);
-  isa_count_values.sort((a, b) => {
-    b.count - a.count;
-  });
-  console.log(isa_count_values);
-
   set_isa_list(isa_count_values);
   load_complete();
 }
@@ -220,11 +217,13 @@ function checkbox_change() {
   }
 }
 
-function set_isa_list(isa_count) {
+function set_isa_list(isa_count_list) {
+  isa_count_list.sort((a, b) => b.count - a.count);
+
   isa_card.classList.remove("visually-hidden");
   var isa_list = document.getElementById("isa-list");
   isa_list.innerHTML = "";
-  isa_count.forEach((isa) => {
+  isa_count_list.forEach((isa) => {
     var isa_id = `isa-${isa.qid}`;
     var e = document.createElement("div");
     e.setAttribute("class", "isa-item");
@@ -260,13 +259,9 @@ function set_isa_list(isa_count) {
   });
 }
 
-function add_wikidata_marker(item, marker_data) {
-  var icon = blueMarker;
-  var qid = item.qid;
-  var label = `${item.label} (${item.qid})`;
-  var marker = L.marker(marker_data, { icon: icon });
-  // var tooltip = marker.bindTooltip(item.qid, {permanent: true, direction: 'bottom', opacity: 0.5});
+function item_popup(item) {
   var wd_url = "https://www.wikidata.org/wiki/" + item.qid;
+
   var popup = "<p><strong>Wikidata item</strong><br>";
   popup += `<a href="${wd_url}" target="_blank">${item.label}</a> (${item.qid})`;
   if (item.description) {
@@ -287,7 +282,50 @@ function add_wikidata_marker(item, marker_data) {
     popup += `<br>street address: ${item.street_address[0]["text"]}`;
   }
   popup += "</p>";
+
+  return popup;
+}
+
+function mouseover(item) {
+  if (item.outline) {
+    item.outline.setStyle({ fillOpacity: 0.2, weight: 6 });
+  }
+  if (item.lines) {
+    item.lines.forEach((line) => { line.setStyle({ weight: 6}); });
+  }
+
+};
+
+function mouseout(item) {
+  if (item.outline) {
+    item.outline.setStyle({ fillOpacity: 0, weight: 3 });
+  }
+  if (item.lines) {
+    item.lines.forEach((line) => { line.setStyle({ weight: 3}); });
+  }
+};
+
+function mouse_events(marker, qid) {
+  items[qid] ||= {};
+  var item = items[qid];
+  marker.on("mouseover", function() { mouseover(item); });
+  marker.on("mouseout", function() { mouseout(item); });
+
+  item.markers ||= [];
+  item.markers.push(marker);
+}
+
+function add_wikidata_marker(item, marker_data) {
+  var icon = blueMarker;
+  var qid = item.qid;
+  var label = `${item.label} (${item.qid})`;
+  var marker = L.marker(marker_data, { icon: icon });
+  // var tooltip = marker.bindTooltip(item.qid, {permanent: true, direction: 'bottom', opacity: 0.5});
+
+  var popup = item_popup(item);
   marker.bindPopup(popup);
+  mouse_events(marker, qid);
+
   var group = add_to_feature_group(item.qid, marker);
   group.addTo(map);
   marker_data.marker = marker;
@@ -304,6 +342,7 @@ function process_wikidata_items(load_items) {
 
     if (items[qid] === undefined) items[qid] = {};
     items[qid].isa_list = item.isa_list;
+
   });
 }
 
@@ -327,8 +366,6 @@ function load_wikidata_items() {
       isa_count[isa.qid] = isa;
       isa_labels[isa.qid] = isa.label;
     });
-
-    // set_isa_list(response.data.isa_count);
 
     process_wikidata_items(response.data.items);
 
@@ -356,6 +393,8 @@ function load_wikidata_items() {
         Wikidata tag: <a href="${wd_url}" target="_blank">${qid}</a>
       </p>`;
       marker.bindPopup(popup);
+      mouse_events(marker, qid);
+
       var group = add_to_feature_group(qid, marker);
       group.addTo(map);
 
@@ -364,6 +403,7 @@ function load_wikidata_items() {
         var geojson = L.geoJSON(null, { style: mapStyle });
         geojson.addData(osm.geojson);
         add_to_feature_group(qid, geojson);
+        items[qid].outline = geojson;
       }
     });
 
