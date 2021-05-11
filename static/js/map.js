@@ -283,6 +283,9 @@ function add_wikidata_marker(item, marker_data) {
   if (item.image_list && item.image_list.length) {
     popup += `<br><img src="/commons/${item.image_list[0]}">`;
   }
+  if (item.street_address && item.street_address.length) {
+    popup += `<br>street address: ${item.street_address[0]["text"]}`;
+  }
   popup += "</p>";
   marker.bindPopup(popup);
   var group = add_to_feature_group(item.qid, marker);
