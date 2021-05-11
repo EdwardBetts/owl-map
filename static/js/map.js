@@ -119,7 +119,6 @@ function update_wikidata(check_for_missing = true) {
     if (missing_qids.length) {
       var params = { qids: missing_qids.join(",") };
       axios.get(missing_url, { params: params }).then((response) => {
-
         response.data.isa_count.forEach((isa) => {
           isa_labels[isa.qid] = isa.label;
           if (isa_count[isa.qid] === undefined) {
@@ -289,25 +288,32 @@ function mouseover(item) {
     item.outline.setStyle({ fillOpacity: 0.2, weight: 6 });
   }
   if (item.lines) {
-    item.lines.forEach((line) => { line.setStyle({ weight: 6}); });
+    item.lines.forEach((line) => {
+      line.setStyle({ weight: 6 });
+    });
   }
-
-};
+}
 
 function mouseout(item) {
   if (item.outline) {
     item.outline.setStyle({ fillOpacity: 0, weight: 3 });
   }
   if (item.lines) {
-    item.lines.forEach((line) => { line.setStyle({ weight: 3}); });
+    item.lines.forEach((line) => {
+      line.setStyle({ weight: 3 });
+    });
   }
-};
+}
 
 function mouse_events(marker, qid) {
   items[qid] ||= {};
   var item = items[qid];
-  marker.on("mouseover", function() { mouseover(item); });
-  marker.on("mouseout", function() { mouseout(item); });
+  marker.on("mouseover", function () {
+    mouseover(item);
+  });
+  marker.on("mouseout", function () {
+    mouseout(item);
+  });
 
   item.markers ||= [];
   item.markers.push(marker);
@@ -340,7 +346,6 @@ function process_wikidata_items(load_items) {
 
     if (items[qid] === undefined) items[qid] = {};
     items[qid].isa_list = item.isa_list;
-
   });
 }
 
