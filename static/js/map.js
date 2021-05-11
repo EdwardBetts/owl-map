@@ -20,6 +20,7 @@ var osm_loaded = false;
 var loading = document.getElementById("loading");
 var load_text = document.getElementById("load-text");
 var isa_card = document.getElementById("isa-card");
+var detail_card = document.getElementById("detail-card");
 var checkbox_list = document.getElementsByClassName("isa-checkbox");
 var isa_labels = {};
 var items_url = "/api/1/items";
@@ -89,6 +90,7 @@ osm.addTo(map);
 function load_complete() {
   loading.classList.add("visually-hidden");
   load_text.classList.remove("visually-hidden");
+  detail_card.classList.add("visually-hidden");
 }
 
 function add_to_feature_group(qid, thing) {
@@ -199,6 +201,7 @@ function checkbox_change() {
 
   for (const qid in items) {
     var item = items[qid];
+    if (item.group === undefined) continue;
 
     if (item.isa_list === undefined) continue;
     const item_isa_list = item.isa_list;
@@ -206,7 +209,7 @@ function checkbox_change() {
       item_isa_list.includes(isa_qid)
     );
 
-    if (item.group && intersection.length) {
+    if (intersection.length) {
       item.group.addTo(map);
     } else {
       item.group.removeFrom(map);
@@ -256,7 +259,7 @@ function set_isa_list(isa_count_list) {
   });
 }
 
-function item_popup(item) {
+function build_item_detail(item) {
   var wd_url = "https://www.wikidata.org/wiki/" + item.qid;
 
   var popup = "<p><strong>Wikidata item</strong><br>";
@@ -276,7 +279,7 @@ function item_popup(item) {
     popup += `<br><img src="/commons/${item.image_list[0]}">`;
   }
   if (item.street_address && item.street_address.length) {
-    popup += `<br>street address: ${item.street_address[0]["text"]}`;
+    popup += `<br><strong>street address</strong><br>${item.street_address[0]["text"]}`;
   }
   popup += "</p>";
 
@@ -314,6 +317,13 @@ function mouse_events(marker, qid) {
   marker.on("mouseout", function () {
     mouseout(item);
   });
+  marker.on("click", function () {
+    isa_card.classList.add("visually-hidden");
+    detail_card.classList.remove("visually-hidden");
+
+    var item_detail = build_item_detail(items[qid].wikidata);
+    detail.innerHTML = item_detail;
+  });
 
   item.markers ||= [];
   item.markers.push(marker);
@@ -326,12 +336,13 @@ function add_wikidata_marker(item, marker_data) {
   var marker = L.marker(marker_data, { icon: icon });
   // var tooltip = marker.bindTooltip(item.qid, {permanent: true, direction: 'bottom', opacity: 0.5});
 
-  var popup = item_popup(item);
-  marker.bindPopup(popup);
+  // var popup = item_popup(item);
+  // marker.bindPopup(popup);
   mouse_events(marker, qid);
 
   var group = add_to_feature_group(item.qid, marker);
   group.addTo(map);
+  items[qid].wikidata = item;
   marker_data.marker = marker;
 }
 
@@ -356,6 +367,7 @@ function load_wikidata_items() {
 
   checkbox_change();
 
+  detail_card.classList.add("visually-hidden");
   loading.classList.remove("visually-hidden");
   load_text.classList.add("visually-hidden");
 
@@ -394,7 +406,7 @@ function load_wikidata_items() {
         <br>
         Wikidata tag: <a href="${wd_url}" target="_blank">${qid}</a>
       </p>`;
-      marker.bindPopup(popup);
+      // marker.bindPopup(popup);
       mouse_events(marker, qid);
 
       var group = add_to_feature_group(qid, marker);
@@ -439,5 +451,11 @@ document.getElementById("search-form").onsubmit = function (e) {
   });
 };
 
+function close_detail() {
+  isa_card.classList.remove("visually-hidden");
+  detail_card.classList.add("visually-hidden");
+}
+
 document.getElementById("load-btn").onclick = load_wikidata_items;
 document.getElementById("show-all-isa").onclick = show_all_isa;
+document.getElementById("close-detail").onclick = close_detail;
