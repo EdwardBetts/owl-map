@@ -207,7 +207,7 @@ function checkbox_change() {
       item_isa_list.includes(isa_qid)
     );
 
-    if (intersection.length) {
+    if (item.group && intersection.length) {
       item.group.addTo(map);
     } else {
       item.group.removeFrom(map);
