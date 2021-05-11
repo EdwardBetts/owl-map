@@ -115,12 +115,10 @@ function update_wikidata(check_for_missing = true) {
       var item = wikidata_items[qid];
       if (!item) missing_qids.push(qid);
     }
-    console.log(missing_qids);
 
     if (missing_qids.length) {
       var params = { qids: missing_qids.join(",") };
       axios.get(missing_url, { params: params }).then((response) => {
-        console.log(response.data.items);
 
         response.data.isa_count.forEach((isa) => {
           isa_labels[isa.qid] = isa.label;
@@ -357,7 +355,6 @@ function load_wikidata_items() {
   load_text.classList.add("visually-hidden");
 
   var bounds = map.getBounds();
-  console.log("map moved", bounds.toBBoxString());
 
   var params = { bounds: bounds.toBBoxString() };
 
