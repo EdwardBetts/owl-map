@@ -2,8 +2,8 @@
   position: absolute;
   top: 0px;
   bottom: 0px;
-  left: 30%;
-  width: 70%;
+  left: 35%;
+  width: 65%;
   z-index: -1;
 }
 
@@ -35,5 +35,5 @@
   left: 0px;
   bottom: 0px;
   overflow: auto;
-  width: 30%;
+  width: 35%;
 }
