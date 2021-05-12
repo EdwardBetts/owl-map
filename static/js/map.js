@@ -26,6 +26,8 @@ var isa_labels = {};
 var items_url = "/api/1/items";
 var osm_objects_url = "/api/1/osm";
 var missing_url = "/api/1/missing";
+var hover_circles = [];
+var selected_circles = [];
 
 var isa_count = {};
 
@@ -305,6 +307,12 @@ function mouseover(item) {
       line.setStyle({ weight: 6 });
     });
   }
+
+  item.markers.forEach((marker) => {
+    var coords = marker.getLatLng();
+    var circle = L.circle(coords, {radius: 25}).addTo(map);
+    hover_circles.push(circle);
+  });
 }
 
 function mouseout(item) {
@@ -316,6 +324,18 @@ function mouseout(item) {
       line.setStyle({ weight: 3 });
     });
   }
+
+  hover_circles.forEach((circle) => {
+    circle.removeFrom(map);
+  });
+  hover_circles = [];
+}
+
+function close_item_details() {
+  selected_circles.forEach((circle) => {
+    circle.removeFrom(map);
+  });
+  selected_circles = [];
 }
 
 function mouse_events(marker, qid) {
@@ -331,6 +351,13 @@ function mouse_events(marker, qid) {
     isa_card.classList.add("visually-hidden");
     detail_card.classList.remove("visually-hidden");
     detail_card.classList.add("bg-highlight");
+    close_item_details();
+
+    item.markers.forEach((marker) => {
+      var coords = marker.getLatLng();
+      var circle = L.circle(coords, {radius: 25, color: "orange"}).addTo(map);
+      selected_circles.push(circle);
+    });
 
     window.setTimeout(function() {
       detail_card.classList.remove("bg-highlight");
@@ -353,15 +380,12 @@ function add_wikidata_marker(item, marker_data) {
   var qid = item.qid;
   var label = `${item.label} (${item.qid})`;
   var marker = L.marker(marker_data, { icon: icon });
-  // var tooltip = marker.bindTooltip(item.qid, {permanent: true, direction: 'bottom', opacity: 0.5});
-
-  // var popup = item_popup(item);
-  // marker.bindPopup(popup);
   mouse_events(marker, qid);
 
   var group = add_to_feature_group(item.qid, marker);
   group.addTo(map);
   items[qid].wikidata = item;
+
   marker_data.marker = marker;
 }
 
@@ -386,6 +410,7 @@ function load_wikidata_items() {
 
   checkbox_change();
 
+  close_item_details();
   detail_card.classList.add("visually-hidden");
   loading.classList.remove("visually-hidden");
   load_text.classList.add("visually-hidden");
@@ -430,6 +455,8 @@ function load_wikidata_items() {
 
       var group = add_to_feature_group(qid, marker);
       group.addTo(map);
+      items[qid].markers ||= [];
+      items[qid].markers.push(marker);
 
       if (osm.type != "node" && osm.geojson) {
         var mapStyle = { fillOpacity: 0 };
@@ -473,6 +500,8 @@ document.getElementById("search-form").onsubmit = function (e) {
 function close_detail() {
   isa_card.classList.remove("visually-hidden");
   detail_card.classList.add("visually-hidden");
+
+  close_item_details();
 }
 
 document.getElementById("load-btn").onclick = load_wikidata_items;
