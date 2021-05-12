@@ -1,11 +1,12 @@
 #!/usr/bin/python3
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
 from matcher import nominatim, model, database, commons, wikidata, wikidata_api
 from collections import Counter
 from time import time
+from geoalchemy2 import Geography
 import GeoIP
 
 srid = 4326
@@ -401,6 +402,65 @@ def api_get_item_tags(item_id):
     osm_list = get_item_tags(item)
     t1 = time() - t0
     return jsonify(success=True, qid=item.qid, tag_or_key_list=osm_list, duration=t1)
+
+
+def get_tag_filter(item):
+    osm_list = get_item_tags(item)
+    tag_filter = []
+    for tag_or_key in osm_list:
+        if tag_or_key.startswith("Key:"):
+            tag_filter.append(model.Polygon.tags.has_key(tag_or_key[4:]))
+        if tag_or_key.startswith("Tag:"):
+            k, _, v = tag_or_key.partition("=")
+            tag_filter.append(model.Polygon.tags[k] == v)
+
+    return or_(*tag_filter)
+
+def get_nearby(item, max_distance=100):
+    osm_objects = {}
+    distances = {}
+    tag_filter = get_tag_filter(item)
+
+    for loc in item.locations:
+        lat, lon = loc.get_lat_lon()
+        point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
+
+        dist = func.ST_Distance(point, model.Polygon.way.cast(Geography()))
+
+        q = (model.Polygon.query
+                          .add_columns(dist.label('distance'))
+                          .filter(dist < max_distance, tag_filter)
+                          .order_by(point.distance_centroid(model.Polygon.way))
+                          .limit(20))
+
+        for i, dist in q:
+            osm_objects.setdefault(i.identifier, i)
+            if i.identifier not in distances or dist < distances[i.identifier]:
+                distances[i.identifier] = dist
+
+    return [(osm_objects[identifier], dist)
+            for identifier, dist
+            in sorted(distances.items(), key=lambda i:i[1])]
+
+
+@app.route("/api/1/item/Q<int:item_id>/candidates")
+def api_find_osm_candidates(item_id):
+    t0 = time()
+    item = model.Item.query.get(item_id)
+    max_distance = 100
+    nearby = []
+    for osm, dist in get_nearby(item, max_distance):
+        cur = {
+            "identifier": osm.identifier,
+            "distance": dist,
+            "tags": osm.tags,
+            "area": osm.area,
+            "geojson": osm.geojson(),
+        }
+        nearby.append(cur)
+
+    t1 = time() - t0
+    return jsonify(success=True, qid=item.qid, nearby=nearby, duration=t1)
 
 
 @app.route("/api/1/missing")

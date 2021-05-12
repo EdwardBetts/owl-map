@@ -368,6 +368,11 @@ function mouse_events(marker, qid) {
       var tag_or_key_list = response.data.tag_or_key_list;
       var item_detail = build_item_detail(items[qid].wikidata, tag_or_key_list);
       detail.innerHTML = item_detail;
+
+      var item_osm_candidates_url = `/api/1/item/${qid}/candidates`;
+      axios.get(item_osm_candidates_url).then((response) => {
+        console.log(response.data);
+      });
     });
   });
 
