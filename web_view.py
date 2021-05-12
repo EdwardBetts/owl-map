@@ -374,6 +374,35 @@ def api_osm_objects():
     return jsonify(success=True, objects=objects, duration=t1)
 
 
+skip_isa = {13226383, 16686448, 2221906}
+skip_tags = {"Key:addr:street"}
+
+def get_item_tags(item):
+    isa_list = [v["numeric-id"] for v in item.get_claim("P31")]
+    isa_items = model.Item.query.filter(model.Item.item_id.in_(isa_list)).all()
+    osm_list = set()
+    seen = set(isa_list) | skip_isa
+    while isa_items:
+        isa = isa_items.pop()
+        osm = [v for v in isa.get_claim("P1282") if v not in skip_tags]
+        osm_list.update(osm)
+
+        subclass_of = [v["numeric-id"] for v in isa.get_claim("P279")]
+        isa_list = [isa_id for isa_id in subclass_of if isa_id not in seen]
+        seen.update(isa_list)
+        isa_items += model.Item.query.filter(model.Item.item_id.in_(isa_list)).all()
+    return sorted(osm_list)
+
+
+@app.route("/api/1/item/Q<int:item_id>/tags")
+def api_get_item_tags(item_id):
+    t0 = time()
+    item = model.Item.query.get(item_id)
+    osm_list = get_item_tags(item)
+    t1 = time() - t0
+    return jsonify(success=True, qid=item.qid, tag_or_key_list=osm_list, duration=t1)
+
+
 @app.route("/api/1/missing")
 def api_missing_wikidata_items():
     qids_arg = request.args.get("qids")

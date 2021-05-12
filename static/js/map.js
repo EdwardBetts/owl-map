@@ -259,7 +259,7 @@ function set_isa_list(isa_count_list) {
   });
 }
 
-function build_item_detail(item) {
+function build_item_detail(item, tag_or_key_list) {
   var wd_url = "https://www.wikidata.org/wiki/" + item.qid;
 
   var popup = "<p><strong>Wikidata item</strong><br>";
@@ -275,12 +275,22 @@ function build_item_detail(item) {
       popup += `<br><a href="${isa_url}" target="_blank">${isa_label}</a> (${isa_qid})`;
     }
   }
+
+  if (tag_or_key_list && tag_or_key_list.length) {
+    popup += "<br><strong>OSM tags/keys to search for</strong>"
+    for (const v of tag_or_key_list) {
+      popup += `<br>${v}`;
+    }
+  }
+
   if (item.image_list && item.image_list.length) {
     popup += `<br><img class="w-100" src="/commons/${item.image_list[0]}">`;
   }
   if (item.street_address && item.street_address.length) {
-    popup += `<br><strong>street address</strong><br>${item.street_address[0]["text"]}`;
+    popup += "<br><strong>street address</strong>"
+    popup += `<br>${item.street_address[0]["text"]}`;
   }
+
   popup += "</p>";
 
   return popup;
@@ -326,8 +336,12 @@ function mouse_events(marker, qid) {
       detail_card.classList.remove("bg-highlight");
     }, 500);
 
-    var item_detail = build_item_detail(items[qid].wikidata);
-    detail.innerHTML = item_detail;
+    var item_tags_url = `/api/1/item/${qid}/tags`;
+    axios.get(item_tags_url).then((response) => {
+      var tag_or_key_list = response.data.tag_or_key_list;
+      var item_detail = build_item_detail(items[qid].wikidata, tag_or_key_list);
+      detail.innerHTML = item_detail;
+    });
   });
 
   item.markers ||= [];
