@@ -17,6 +17,10 @@
   background: lightgray;
 }
 
+.bg-highlight {
+  background: lightgray !important;
+}
+
 #load-btn {
   position: absolute;
   top: 20px;

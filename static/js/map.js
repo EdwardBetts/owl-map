@@ -320,6 +320,11 @@ function mouse_events(marker, qid) {
   marker.on("click", function () {
     isa_card.classList.add("visually-hidden");
     detail_card.classList.remove("visually-hidden");
+    detail_card.classList.add("bg-highlight");
+
+    window.setTimeout(function() {
+      detail_card.classList.remove("bg-highlight");
+    }, 500);
 
     var item_detail = build_item_detail(items[qid].wikidata);
     detail.innerHTML = item_detail;
