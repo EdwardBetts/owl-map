@@ -276,7 +276,7 @@ function build_item_detail(item) {
     }
   }
   if (item.image_list && item.image_list.length) {
-    popup += `<br><img src="/commons/${item.image_list[0]}">`;
+    popup += `<br><img class="w-100" src="/commons/${item.image_list[0]}">`;
   }
   if (item.street_address && item.street_address.length) {
     popup += `<br><strong>street address</strong><br>${item.street_address[0]["text"]}`;
