@@ -21,13 +21,20 @@ var loading = document.getElementById("loading");
 var load_text = document.getElementById("load-text");
 var isa_card = document.getElementById("isa-card");
 var detail_card = document.getElementById("detail-card");
+var detail = document.getElementById("detail");
+var detail_image = document.getElementById("detail-image");
+var detail_header = document.getElementById("detail-header");
+var detail_qid;
+var candidates = document.getElementById("candidates");
 var checkbox_list = document.getElementsByClassName("isa-checkbox");
+var nearby_lookup = {};
 var isa_labels = {};
 var items_url = "/api/1/items";
 var osm_objects_url = "/api/1/osm";
 var missing_url = "/api/1/missing";
 var hover_circles = [];
 var selected_circles = [];
+var candidate_outline;
 
 var isa_count = {};
 
@@ -267,7 +274,7 @@ function build_item_detail(item, tag_or_key_list) {
   var popup = "<p><strong>Wikidata item</strong><br>";
   popup += `<a href="${wd_url}" target="_blank">${item.label}</a> (${item.qid})`;
   if (item.description) {
-    popup += `<br>description: ${item.description}`;
+    popup += `<br><strong>description</strong><br>${item.description}`;
   }
   if (item.isa_list && item.isa_list.length) {
     popup += "<br><strong>item type</strong>";
@@ -279,17 +286,14 @@ function build_item_detail(item, tag_or_key_list) {
   }
 
   if (tag_or_key_list && tag_or_key_list.length) {
-    popup += "<br><strong>OSM tags/keys to search for</strong>"
+    popup += "<br><strong>OSM tags/keys to search for</strong>";
     for (const v of tag_or_key_list) {
       popup += `<br>${v}`;
     }
   }
 
-  if (item.image_list && item.image_list.length) {
-    popup += `<br><img class="w-100" src="/commons/${item.image_list[0]}">`;
-  }
   if (item.street_address && item.street_address.length) {
-    popup += "<br><strong>street address</strong>"
+    popup += "<br><strong>street address</strong>";
     popup += `<br>${item.street_address[0]["text"]}`;
   }
 
@@ -310,7 +314,7 @@ function mouseover(item) {
 
   item.markers.forEach((marker) => {
     var coords = marker.getLatLng();
-    var circle = L.circle(coords, {radius: 25}).addTo(map);
+    var circle = L.circle(coords, { radius: 20 }).addTo(map);
     hover_circles.push(circle);
   });
 }
@@ -336,6 +340,19 @@ function close_item_details() {
     circle.removeFrom(map);
   });
   selected_circles = [];
+
+  detail_header.innerHTML = "";
+  detail.innerHTML = "";
+  candidates.innerHTML = "";
+  detail_qid = undefined;
+
+  detail_image.setAttribute("src", "");
+  detail_image.classList.add("d-none");
+
+  if (candidate_outline) {
+    candidate_outline.removeFrom(map);
+    candidate_outline = undefined;
+  }
 }
 
 function mouse_events(marker, qid) {
@@ -348,6 +365,7 @@ function mouse_events(marker, qid) {
     mouseout(item);
   });
   marker.on("click", function () {
+    var wd_item = items[qid].wikidata;
     isa_card.classList.add("visually-hidden");
     detail_card.classList.remove("visually-hidden");
     detail_card.classList.add("bg-highlight");
@@ -355,24 +373,77 @@ function mouse_events(marker, qid) {
 
     item.markers.forEach((marker) => {
       var coords = marker.getLatLng();
-      var circle = L.circle(coords, {radius: 25, color: "orange"}).addTo(map);
+      var circle = L.circle(coords, { radius: 20, color: "orange" }).addTo(map);
       selected_circles.push(circle);
     });
 
-    window.setTimeout(function() {
+    window.setTimeout(function () {
       detail_card.classList.remove("bg-highlight");
     }, 500);
+
+    detail_qid = qid;
+
+    if (wd_item.image_list && wd_item.image_list.length) {
+      detail_image.setAttribute("src", `/commons/${wd_item.image_list[0]}`);
+      detail_image.classList.remove("d-none");
+    } else {
+      detail_image.setAttribute("src", "");
+      detail_image.classList.add("d-none");
+    }
+
+    var item_label = `${wd_item.label} (${wd_item.qid})`;
+    detail_header.innerHTML = "";
+    detail_header.append(document.createTextNode(item_label));
 
     var item_tags_url = `/api/1/item/${qid}/tags`;
     axios.get(item_tags_url).then((response) => {
       var tag_or_key_list = response.data.tag_or_key_list;
-      var item_detail = build_item_detail(items[qid].wikidata, tag_or_key_list);
+      if (response.data.qid != detail_qid) {
+        tag_or_key_list = []; // different QID
+      }
+      var item_detail = build_item_detail(wd_item, tag_or_key_list);
       detail.innerHTML = item_detail;
 
+      if (tag_or_key_list.length == 0) return;
+
       var item_osm_candidates_url = `/api/1/item/${qid}/candidates`;
-      axios.get(item_osm_candidates_url).then((response) => {
-        console.log(response.data);
-      });
+      var bounds = map.getBounds();
+
+      var params = { bounds: bounds.toBBoxString() };
+
+      axios
+        .get(item_osm_candidates_url, { params: params })
+        .then((response) => {
+          if (response.data.qid != detail_qid) return; // different QID
+          var nearby = response.data.nearby;
+          if (!nearby.length) return;
+          var osm_html = "<strong>Possible OSM matches</strong><br>";
+          for (const osm of nearby) {
+            var span_id = osm.identifier.replace("/", "_");
+            nearby_lookup[span_id] = osm;
+            osm_html += `<span class="osm-candidate" id="${span_id}"> ${osm.distance.toFixed(
+              1
+            )}m ${osm.name || "no name"}</span><br>`;
+          }
+          candidates.innerHTML = osm_html;
+          var span_list = document.getElementsByClassName("osm-candidate");
+          for (const osm_span of span_list) {
+            osm_span.onmouseover = function (e) {
+              osm = nearby_lookup[e.target.id];
+
+              if (candidate_outline !== undefined) {
+                candidate_outline.removeFrom(map);
+              }
+
+              var mapStyle = { fillOpacity: 0, color: "red" };
+              var geojson = L.geoJSON(null, { style: mapStyle });
+              geojson.addData(osm.geojson);
+              geojson.addTo(map);
+
+              candidate_outline = geojson;
+            };
+          }
+        });
     });
   });
 

@@ -327,6 +327,7 @@ def get_and_save_item(qid):
         raise
     item.locations = model.location_objects(coords)
     database.session.add(item)
+    database.session.commit()
 
     return item
 
@@ -375,23 +376,334 @@ def api_osm_objects():
     return jsonify(success=True, objects=objects, duration=t1)
 
 
-skip_isa = {13226383, 16686448, 2221906}
+edu = ['Tag:amenity=college', 'Tag:amenity=university', 'Tag:amenity=school',
+       'Tag:office=educational_institution']
+tall = ['Key:height', 'Key:building:levels']
+
+extra_keys = {
+    'Q3914': ['Tag:building=school',
+              'Tag:building=college',
+              'Tag:amenity=college',
+              'Tag:office=educational_institution'],  # school
+    'Q322563': edu,                             # vocational school
+    'Q383092': edu,                             # film school
+    'Q1021290': edu,                            # music school
+    'Q1244442': edu,                            # school building
+    'Q1469420': edu,                            # adult education centre
+    'Q2143781': edu,                            # drama school
+    'Q2385804': edu,                            # educational institution
+    'Q5167149': edu,                            # cooking school
+    'Q7894959': edu,                            # University Technical College
+    'Q47530379': edu,                           # agricultural college
+    'Q11303': tall,                             # skyscraper
+    'Q18142': tall,                             # high-rise building
+    'Q33673393': tall,                          # multi-storey building
+    'Q641226': ['Tag:leisure=stadium'],         # arena
+    'Q2301048': ['Tag:aeroway=helipad'],        # special airfield
+    'Q622425': ['Tag:amenity=pub',
+                'Tag:amenity=music_venue'],     # nightclub
+    'Q187456': ['Tag:amenity=pub',
+                'Tag:amenity=nightclub'],       # bar
+    'Q16917': ['Tag:amenity=clinic',
+               'Tag:building=clinic'],          # hospital
+    'Q330284': ['Tag:amenity=market'],          # marketplace
+    'Q5307737': ['Tag:amenity=pub',
+                 'Tag:amenity=bar'],            # drinking establishment
+    'Q875157': ['Tag:tourism=resort'],          # resort
+    'Q174782': ['Tag:leisure=park',
+                'Tag:highway=pedestrian',
+                'Tag:foot=yes',
+                'Tag:area=yes',
+                'Tag:amenity=market',
+                'Tag:leisure=common'],          # square
+    'Q34627': ['Tag:religion=jewish'],          # synagogue
+    'Q16970': ['Tag:religion=christian'],       # church
+    'Q32815': ['Tag:religion=islam'],           # mosque
+    'Q811979': ['Key:building'],                # architectural structure
+    'Q11691': ['Key:building'],                 # stock exchange
+    'Q1329623': ['Tag:amenity=arts_centre',     # cultural centre
+                 'Tag:amenity=community_centre'],
+    'Q856584': ['Tag:amenity=library'],         # library building
+    'Q11315': ['Tag:landuse=retail'],           # shopping mall
+    'Q39658032': ['Tag:landuse=retail'],        # open air shopping centre
+    'Q277760': ['Tag:historic=folly',
+                'Tag:historic=city_gate'],      # gatehouse
+    'Q180174': ['Tag:historic=folly'],          # folly
+    'Q15243209': ['Tag:leisure=park',
+                  'Tag:boundary=national_park'],   # historic district
+    'Q3010369': ['Tag:historic=monument'],      # opening ceremony
+    'Q123705': ['Tag:place=suburb'],            # neighbourhood
+    'Q256020': ['Tag:amenity=pub'],             # inn
+    'Q41253': ['Tag:amenity=theatre'],          # movie theater
+    'Q17350442': ['Tag:amenity=theatre'],       # venue
+    'Q156362': ['Tag:amenity=winery'],          # winery
+    'Q14092': ['Tag:leisure=fitness_centre',
+               'Tag:leisure=sports_centre'],    # gymnasium
+    'Q27686': ['Tag:tourism=hostel',            # hotel
+               'Tag:tourism=guest_house',
+               'Tag:building=hotel'],
+    'Q11707': ['Tag:amenity=cafe', 'Tag:amenity=fast_food',
+               'Tag:shop=deli', 'Tag:shop=bakery',
+               'Key:cuisine'],                  # restaurant
+    'Q2360219': ['Tag:amenity=embassy'],        # permanent mission
+    'Q27995042': ['Tag:protection_title=Wilderness Area'],  # wilderness area
+    'Q838948': ['Tag:historic=memorial',
+                'Tag:historic=monument'],       # work of art
+    'Q23413': ['Tag:place=locality'],           # castle
+    'Q28045079': ['Tag:historic=archaeological_site',
+                  'Tag:site_type=fortification',
+                  'Tag:embankment=yes'],        # contour fort
+    'Q744099': ['Tag:historic=archaeological_site',
+                'Tag:site_type=fortification',
+                'Tag:embankment=yes'],          # hillfort
+    'Q515': ['Tag:border_type=city'],           # city
+    'Q1254933': ['Tag:amenity=university'],     # astronomical observatory
+    'Q1976594': ['Tag:landuse=industrial'],     # science park
+    'Q190928': ['Tag:landuse=industrial'],      # shipyard
+    'Q4663385': ['Tag:historic=train_station',  # former railway station
+                 'Tag:railway=historic_station'],
+    'Q11997323': ['Tag:emergency=lifeboat_station'],  # lifeboat station
+    'Q16884952': ['Tag:castle_type=stately',
+                  'Tag:building=country_house'],  # country house
+    'Q1343246': ['Tag:castle_type=stately',
+                 'Tag:building=country_house'],   # English country house
+    'Q4919932': ['Tag:castle_type=stately'],    # stately home
+    'Q1763828': ['Tag:amenity=community_centre'],  # multi-purpose hall
+    'Q3469910': ['Tag:amenity=community_centre'],  # performing arts center
+    'Q57660343': ['Tag:amenity=community_centre'],  # performing arts building
+    'Q163740': ['Tag:amenity=community_centre',  # nonprofit organization
+                'Tag:amenity=social_facility',
+                'Key:social_facility'],
+    'Q41176': ['Key:building:levels'],          # building
+    'Q44494': ['Tag:historic=mill'],            # mill
+    'Q56822897': ['Tag:historic=mill'],         # mill building
+    'Q2175765': ['Tag:public_transport=stop_area'],  # tram stop
+    'Q179700': ['Tag:memorial=statue',          # statue
+                'Tag:memorial:type=statue',
+                'Tag:historic=memorial'],
+    'Q1076486': ['Tag:landuse=recreation_ground'],  # sports venue
+    'Q988108': ['Tag:amenity=community_centre',  # club
+                'Tag:community_centre=club_home'],
+    'Q55004558': ['Tag:service=yard',
+                  'Tag:landuse=railway'],       # car barn
+    'Q19563580': ['Tag:landuse=railway'],       # rail yard
+    'Q134447': ['Tag:generator:source=nuclear'],  # nuclear power plant
+    'Q1258086': ['Tag:leisure=park',
+                 'Tag:boundary=national_park'],  # National Historic Site
+    'Q32350958': ['Tag:leisure=bingo'],         # Bingo hall
+    'Q53060': ['Tag:historic=gate',             # gate
+               'Tag:tourism=attraction'],
+    'Q3947': ['Tag:tourism=hotel',              # house
+              'Tag:building=hotel',
+              'Tag:tourism=guest_house'],
+    'Q847017': ['Tag:leisure=sports_centre'],   # sports club
+    'Q820477': ['Tag:landuse=quarry',
+                'Tag:gnis:feature_type=Mine'],  # mine
+    'Q77115': ['Tag:leisure=sports_centre'],    # community center
+    'Q35535': ['Tag:amenity=police'],           # police
+    'Q16560': ['Tag:tourism=attraction',        # palace
+               'Tag:historic=yes'],
+    'Q131734': ['Tag:amenity=pub',              # brewery
+                'Tag:industrial=brewery'],
+    'Q828909': ['Tag:landuse=commercial',
+                'Tag:landuse=industrial',
+                'Tag:historic=dockyard'],       # wharf
+    'Q10283556': ['Tag:landuse=railway'],       # motive power depot
+    'Q18674739': ['Tag:leisure=stadium'],       # event venue
+    'Q20672229': ['Tag:historic=archaeological_site'],  # friary
+    'Q207694': ['Tag:museum=art'],              # art museum
+    'Q22698': ['Tag:leisure=dog_park',
+               'Tag:amenity=market',
+               'Tag:place=square',
+               'Tag:leisure=common'],           # park
+    'Q738570': ['Tag:place=suburb'],            # central business district
+    'Q1133961': ['Tag:place=suburb'],           # commercial district
+    'Q935277': ['Tag:gnis:ftype=Playa',
+                'Tag:natural=sand'],            # salt pan
+    'Q14253637': ['Tag:gnis:ftype=Playa',
+                  'Tag:natural=sand'],          # dry lake
+    'Q63099748': ['Tag:tourism=hotel',          # hotel building
+                  'Tag:building=hotel',
+                  'Tag:tourism=guest_house'],
+    'Q2997369': ['Tag:leisure=park',
+                 'Tag:highway=pedestrian',
+                 'Tag:foot=yes',
+                 'Tag:area=yes',
+                 'Tag:amenity=market',
+                 'Tag:leisure=common'],         # plaza
+    'Q130003': ['Tag:landuse=winter_sports',    # ski resort
+                'Tag:site=piste',
+                'Tag:leisure=resort',
+                'Tag:landuse=recreation_ground'],
+    'Q4830453': ['Key:office',
+                 'Tag:building=office'],        # business
+}
+
+skip_isa = {
+    13226383,
+    16686448,
+    2221906,
+    2133296,  # space (architecture)
+    56052926,  # building division
+    15989253,  # part
+    9350592,  # telecommunications infrastructure
+    121359,  # infrastructure
+    28877,  # goods
+    2897903,  # goods and services
+    2995644,  # result
+    733541,  # consequence
+    408386,  # inference
+    3249551,  # process
+    20937557,  # series
+    16887380,  # group
+    28813620,  # set
+    99527517,  # collection entity
+    1150070,  # change
+    1190554,  # occurrence
+    26907166,  # temporal entity
+    2425052,  # electrical appliance
+    931447,  # electrical load
+    210729,  # electrical element
+    3749263,  # electrical device
+    16798631,  # equipment
+    66310125,  # nonbiological component
+    22811462,  # type of manufactured good
+    21146257,  # type
+    16889133,  # class
+    1310239,  # component
+    337060,  # perceptible object
+    581105,  # consumer electronics
+    2858615,  # electronic machine
+    1183543,  # device
+    39546,  # tool
+    35825432,  # converter
+    11019,  # machine
+    8205328,  # artificial physical object
+    223557,  # physical object
+    35459920,  # three-dimensional object
+    488383,  # object
+    35120,  # entity
+    1454986,  # physical system
+    30060700,  # scientific object
+    58778,  # system
+    6671777,  # structure
+    4406616,  # concrete object
+    2555640,  # cell (architecture)
+    78642244,  # closed space
+    1902617,  # verblijfsruimte
+    180516,  # room ['Key:room']
+    17334923,  # location
+    27096213,  # geographic entity
+    58416391,  # spatial entity
+    58415929,  # spatio-temporal entity
+    811979,  # architectural structure
+    811430,  # human-made geographic feature
+    35145743,  # human-made landform
+    27096235,  # artificial geographic entity
+    618123,  # geographical feature
+    386724,  # work
+    15401930,  # product
+    102074988,  # artificial physical structure
+    15710813,  # physical structure
+    1299240,  # interior space
+    4830453,  # business
+    3563237,  # economic unit
+    2198779,  # unit
+    7184903,  # abstract object
+    43229,  # organization
+    16334295,  # group of humans
+    16334298,  # group of living things
+    61961344,  # group of physical objects
+    98119401,  # group or class of physical objects
+    106559804,  # person or organization
+    24229398,  # agent
+    23958946,  # individual entity
+    4830453,  # business
+    2695280,  # technique
+    21162272,  # means
+    4026292,  # action
+    1914636,  # activity
+    372222,  # human-readable medium
+    494756,  # data
+    42848,  # data
+    1166770,  # depiction
+    11024,  # communication
+    6031064,  # information exchange
+    52948,  # interaction
+    23009552,  # exchange
+    23009675,  # transfer
+    22294683,  # biological process involved in intraspecies interaction between organisms
+    628858,  # workplace
+    1228250,  # line
+    211548,  # locus
+    36161,  # set
+    864377,  # multiset
+    246672,  # mathematical object
+    5469988,  # formalization
+    4393498,  # representation
+    930933,  # relation
+    217594,  # class
+    294440,  # public space
+    7551384,  # social space
+    83493482,  # thanking
+    83492918,  # acknowledgement
+    628523,  # message
+    11028,  # information
+    189970,  # social status
+    11424100,  # status
+    4897819,  # role
+    1207505,  # quality
+    937228,  # property
+    11862829,  # academic discipline
+    1047113,  # specialty
+    9081,  # knowledge
+    104127086,  # memory
+    12488383,  # content
+    2434238,  # heritage
+    23893363,  # heritage
+    82821,  # tradition
+    251777,  # custom
+    1299714,  # habit
+    36529775,  # habit
+    7302601,  # recognition
+}
 skip_tags = {"Key:addr:street"}
 
+def get_items(item_ids):
+    items = []
+    for item_id in item_ids:
+        item = model.Item.query.get(item_id)
+        if not item:
+            print(f"get Q{item_id}")
+            if not get_and_save_item(f"Q{item_id}"):
+                continue
+            item = model.Item.query.get(item_id)
+        items.append(item)
+
+    return items
+
 def get_item_tags(item):
+    isa_items = []
     isa_list = [v["numeric-id"] for v in item.get_claim("P31")]
-    isa_items = model.Item.query.filter(model.Item.item_id.in_(isa_list)).all()
+    isa_items = get_items(isa_list)
+
     osm_list = set()
     seen = set(isa_list) | skip_isa
     while isa_items:
         isa = isa_items.pop()
+        if not isa:
+            continue
         osm = [v for v in isa.get_claim("P1282") if v not in skip_tags]
+        if isa.qid in extra_keys:
+            osm += extra_keys[isa.qid]
+
+        print(isa.qid, isa.label(), osm)
         osm_list.update(osm)
 
-        subclass_of = [v["numeric-id"] for v in isa.get_claim("P279")]
+        subclass_of = [v["numeric-id"] for v in (isa.get_claim("P279") or []) if v]
         isa_list = [isa_id for isa_id in subclass_of if isa_id not in seen]
         seen.update(isa_list)
-        isa_items += model.Item.query.filter(model.Item.item_id.in_(isa_list)).all()
+        isa_items += get_items(isa_list)
     return sorted(osm_list)
 
 
@@ -404,59 +716,80 @@ def api_get_item_tags(item_id):
     return jsonify(success=True, qid=item.qid, tag_or_key_list=osm_list, duration=t1)
 
 
-def get_tag_filter(item):
-    osm_list = get_item_tags(item)
+def get_tag_filter(cls, tag_list):
     tag_filter = []
-    for tag_or_key in osm_list:
+    for tag_or_key in tag_list:
         if tag_or_key.startswith("Key:"):
-            tag_filter.append(model.Polygon.tags.has_key(tag_or_key[4:]))
+            tag_filter.append(cls.tags.has_key(tag_or_key[4:]))
         if tag_or_key.startswith("Tag:"):
             k, _, v = tag_or_key.partition("=")
-            tag_filter.append(model.Polygon.tags[k] == v)
+            tag_filter.append(cls.tags[k[4:]] == v)
 
-    return or_(*tag_filter)
+    return tag_filter
 
-def get_nearby(item, max_distance=100):
+def get_nearby(bbox, item, max_distance=200):
+    db_bbox = make_envelope(bbox)
+
     osm_objects = {}
     distances = {}
-    tag_filter = get_tag_filter(item)
+    tag_list = get_item_tags(item)
+    if not tag_list:
+        return []
 
     for loc in item.locations:
         lat, lon = loc.get_lat_lon()
         point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
+        for cls in model.Point, model.Line, model.Polygon:
+            tag_filter = get_tag_filter(cls, tag_list)
+            dist = func.ST_Distance(point, cls.way.cast(Geography(srid=4326)))
 
-        dist = func.ST_Distance(point, model.Polygon.way.cast(Geography()))
-
-        q = (model.Polygon.query
-                          .add_columns(dist.label('distance'))
-                          .filter(dist < max_distance, tag_filter)
-                          .order_by(point.distance_centroid(model.Polygon.way))
+            q = (cls.query.add_columns(dist.label('distance'))
+                          .filter(
+                              func.ST_Intersects(db_bbox, cls.way),
+                              func.ST_Area(cls.way) < 20 * func.ST_Area(db_bbox),
+                              or_(*tag_filter))
+                          .order_by(point.distance_centroid(cls.way))
                           .limit(20))
 
-        for i, dist in q:
-            osm_objects.setdefault(i.identifier, i)
-            if i.identifier not in distances or dist < distances[i.identifier]:
-                distances[i.identifier] = dist
+            # print(q.statement.compile(compile_kwargs={"literal_binds": True}))
 
-    return [(osm_objects[identifier], dist)
-            for identifier, dist
-            in sorted(distances.items(), key=lambda i:i[1])]
+            for i, dist in q:
+                if dist > max_distance:
+                    continue
+                osm_objects.setdefault(i.identifier, i)
+                if i.identifier not in distances or dist < distances[i.identifier]:
+                    distances[i.identifier] = dist
+
+    nearby = [(osm_objects[identifier], dist)
+              for identifier, dist
+              in sorted(distances.items(), key=lambda i:i[1])]
+
+    return nearby[:10]
 
 
 @app.route("/api/1/item/Q<int:item_id>/candidates")
 def api_find_osm_candidates(item_id):
+    bounds = request.args.get("bounds")
+
     t0 = time()
     item = model.Item.query.get(item_id)
-    max_distance = 100
     nearby = []
-    for osm, dist in get_nearby(item, max_distance):
+    for osm, dist in get_nearby(bounds, item):
+        tags = osm.tags
+        name = osm.name or tags.get("addr:housename")
+        if not name and "addr:housenumber" in tags and "addr:street" in tags:
+            name = tags["addr:housenumber"] + " " + tags["addr:street"]
+
         cur = {
             "identifier": osm.identifier,
             "distance": dist,
-            "tags": osm.tags,
-            "area": osm.area,
+            "name": name,
+            "tags": tags,
             "geojson": osm.geojson(),
         }
+        if hasattr(osm, 'area'):
+            cur["area"] = osm.area
+
         nearby.append(cur)
 
     t1 = time() - t0
