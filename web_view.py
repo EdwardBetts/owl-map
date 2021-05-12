@@ -188,7 +188,7 @@ def identifier_index():
 
 @app.route("/commons/<filename>")
 def get_commons_image(filename):
-    detail = commons.image_detail([filename], thumbheight=250, thumbwidth=250)
+    detail = commons.image_detail([filename], thumbheight=600, thumbwidth=600)
     image = detail[filename]
     return redirect(image["thumburl"])
 
