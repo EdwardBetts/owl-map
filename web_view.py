@@ -666,6 +666,11 @@ skip_isa = {
     1299714,  # habit
     36529775,  # habit
     7302601,  # recognition
+    854429,  # portal
+    391414,  # architectural element
+    3955017,  # intermediate good
+    2424752,  # product
+    19603939,  # building component
 }
 skip_tags = {"Key:addr:street"}
 
