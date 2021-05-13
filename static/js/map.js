@@ -97,9 +97,9 @@ var osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 osm.addTo(map);
 
 function load_complete() {
-  loading.classList.add("visually-hidden");
-  load_text.classList.remove("visually-hidden");
-  detail_card.classList.add("visually-hidden");
+  loading.classList.add("d-none");
+  load_text.classList.remove("d-none");
+  detail_card.classList.add("d-none");
 }
 
 function add_to_feature_group(qid, thing) {
@@ -229,7 +229,7 @@ function checkbox_change() {
 function set_isa_list(isa_count_list) {
   isa_count_list.sort((a, b) => b.count - a.count);
 
-  isa_card.classList.remove("visually-hidden");
+  isa_card.classList.remove("d-none");
   var isa_list = document.getElementById("isa-list");
   isa_list.innerHTML = "";
   isa_count_list.forEach((isa) => {
@@ -366,8 +366,8 @@ function mouse_events(marker, qid) {
   });
   marker.on("click", function () {
     var wd_item = items[qid].wikidata;
-    isa_card.classList.add("visually-hidden");
-    detail_card.classList.remove("visually-hidden");
+    isa_card.classList.add("d-none");
+    detail_card.classList.remove("d-none");
     detail_card.classList.add("bg-highlight");
     close_item_details();
 
@@ -487,9 +487,9 @@ function load_wikidata_items() {
   checkbox_change();
 
   close_item_details();
-  detail_card.classList.add("visually-hidden");
-  loading.classList.remove("visually-hidden");
-  load_text.classList.add("visually-hidden");
+  detail_card.classList.add("d-none");
+  loading.classList.remove("d-none");
+  load_text.classList.add("d-none");
 
   var bounds = map.getBounds();
 
@@ -504,7 +504,7 @@ function load_wikidata_items() {
     process_wikidata_items(response.data.items);
 
     wikidata_loaded = true;
-    isa_card.classList.remove("visually-hidden");
+    isa_card.classList.remove("d-none");
     update_wikidata();
   });
 
@@ -574,8 +574,8 @@ document.getElementById("search-form").onsubmit = function (e) {
 };
 
 function close_detail() {
-  isa_card.classList.remove("visually-hidden");
-  detail_card.classList.add("visually-hidden");
+  isa_card.classList.remove("d-none");
+  detail_card.classList.add("d-none");
 
   close_item_details();
 }
