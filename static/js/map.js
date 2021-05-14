@@ -286,6 +286,11 @@ function build_item_detail(item, tag_or_key_list) {
       popup += `<br><a href="${isa_url}" target="_blank">${isa_label}</a> (${isa_qid})`;
     }
   }
+  if (item.street_address && item.street_address.length) {
+    popup += "<br><strong>street address</strong>";
+    popup += `<br>${item.street_address[0]}`;
+  }
+
   popup += '</div><div class="col">'
 
   if (tag_or_key_list && tag_or_key_list.length) {
@@ -293,11 +298,6 @@ function build_item_detail(item, tag_or_key_list) {
     for (const v of tag_or_key_list) {
       popup += `<br>${v}`;
     }
-  }
-
-  if (item.street_address && item.street_address.length) {
-    popup += "<br><strong>street address</strong>";
-    popup += `<br>${item.street_address[0]["text"]}`;
   }
 
   popup += "</div></div>";
