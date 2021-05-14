@@ -145,8 +145,6 @@ def get_items_in_bbox(bbox):
 def get_markers(all_items):
     items = []
     for item in all_items:
-        if "en" not in item.labels:
-            continue
         locations = [list(i.get_lat_lon()) for i in item.locations]
         image_filenames = item.get_claim("P18")
         item = {
