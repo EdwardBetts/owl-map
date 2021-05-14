@@ -421,9 +421,18 @@ function mouse_events(marker, qid) {
           for (const osm of nearby) {
             var span_id = osm.identifier.replace("/", "_");
             nearby_lookup[span_id] = osm;
-            osm_html += `<span class="osm-candidate" id="${span_id}"> ${osm.distance.toFixed(
-              1
-            )}m ${osm.name || "no name"}</span><br>`;
+            osm_html += `<span class="osm-candidate" id="${span_id}"> ${osm.distance.toFixed(1)}m `
+            osm_html += osm.presets.join(", ");
+            if (osm.presets.length && osm.name) {
+              osm_html += ": ";
+            }
+            if (osm.name) {
+              osm_html += osm.name;
+            }
+            if (!osm.presets.length && !osm.name) {
+              osm_html += "no name";
+            }
+            osm_html += "</span><br>";
           }
           candidates.innerHTML = osm_html;
           var span_list = document.getElementsByClassName("osm-candidate");

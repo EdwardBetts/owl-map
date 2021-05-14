@@ -7,6 +7,8 @@ from matcher import nominatim, model, database, commons, wikidata, wikidata_api
 from collections import Counter
 from time import time
 from geoalchemy2 import Geography
+import os
+import json
 import GeoIP
 
 srid = 4326
@@ -775,6 +777,22 @@ def get_nearby(bbox, item, max_distance=200):
     return nearby[:10]
 
 
+def get_presets_from_tags(tags):
+    preset_dir = app.config["ID_PRESET_DIR"]
+    found = []
+    for k, v in tags.items():
+        filename = os.path.join(preset_dir, k, v + ".json")
+        if not os.path.exists(filename):
+            filename = os.path.join(preset_dir, k + ".json")
+            if not os.path.exists(filename):
+                continue
+        data = json.load(open(filename))
+        name = data["name"]
+        found.append(name)
+
+    return found
+
+
 @app.route("/api/1/item/Q<int:item_id>/candidates")
 def api_find_osm_candidates(item_id):
     bounds = request.args.get("bounds")
@@ -794,6 +812,7 @@ def api_find_osm_candidates(item_id):
             "name": name,
             "tags": tags,
             "geojson": osm.geojson(),
+            "presets": get_presets_from_tags(tags),
         }
         if hasattr(osm, 'area'):
             cur["area"] = osm.area
