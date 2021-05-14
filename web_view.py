@@ -142,18 +142,41 @@ def get_items_in_bbox(bbox):
     return q
 
 
+def get_item_street_addresses(item):
+    street_address = [addr["text"] for addr in item.get_claim("P6375")]
+    if street_address or "P669" not in item.claims:
+        return street_address
+
+    for claim in item.claims["P669"]:
+        qualifiers = claim.get("qualifiers")
+        if not qualifiers or 'P670' not in qualifiers:
+            continue
+        number = qualifiers["P670"][0]["datavalue"]["value"]
+
+        street = get_item(claim["mainsnak"]["datavalue"]["value"]["numeric-id"])
+        street_name = street.label()
+        for q in qualifiers["P670"]:
+            number = q["datavalue"]["value"]
+            street_address.append(f"{street_name} {number}")
+
+    return street_address
+
+
 def get_markers(all_items):
     items = []
     for item in all_items:
         locations = [list(i.get_lat_lon()) for i in item.locations]
         image_filenames = item.get_claim("P18")
+
+        street_address = get_item_street_addresses(item)
+
         item = {
             "qid": item.qid,
             "label": item.label(),
             "description": item.description(),
             "markers": locations,
             "image_list": image_filenames,
-            "street_address": item.get_claim("P6375"),
+            "street_address": street_address,
             "isa_list": [v["id"] for v in item.get_claim("P31")],
         }
         items.append(item)
