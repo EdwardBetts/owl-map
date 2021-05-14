@@ -197,6 +197,10 @@ class MapMixin:
     def geojson_str(cls):
         return column_property(func.ST_AsGeoJSON(cls.way), deferred=True)
 
+    @declared_attr
+    def as_EWKT(cls):
+        return column_property(func.ST_AsEWKT(cls.way), deferred=True)
+
     def geojson(self):
         return json.loads(self.geojson_str)
 
