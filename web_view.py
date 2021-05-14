@@ -755,8 +755,15 @@ def get_nearby(bbox, item, max_distance=200):
                               func.ST_Intersects(db_bbox, cls.way),
                               func.ST_Area(cls.way) < 20 * func.ST_Area(db_bbox),
                               or_(*tag_filter))
-                          .order_by(point.distance_centroid(cls.way))
-                          .limit(20))
+                          .order_by(point.distance_centroid(cls.way)))
+
+            if "Key:amenity" in tag_list:
+                q = q.filter(cls.tags["amenity"] != "bicycle_parking",
+                             cls.tags["amenity"] != "bicycle_repair_station",
+                             cls.tags["amenity"] != "atm",
+                             cls.tags["amenity"] != "recycling")
+
+            q = q.limit(20)
 
             # print(q.statement.compile(compile_kwargs={"literal_binds": True}))
 
