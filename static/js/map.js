@@ -24,6 +24,7 @@ var detail_card = document.getElementById("detail-card");
 var detail = document.getElementById("detail");
 var detail_image = document.getElementById("detail-image");
 var detail_header = document.getElementById("detail-header");
+var search_and_isa = document.getElementById("search-and-isa");
 var detail_qid;
 var candidates = document.getElementById("candidates");
 var checkbox_list = document.getElementsByClassName("isa-checkbox");
@@ -366,7 +367,7 @@ function mouse_events(marker, qid) {
   });
   marker.on("click", function () {
     var wd_item = items[qid].wikidata;
-    isa_card.classList.add("d-none");
+    search_and_isa.classList.add("d-none");
     detail_card.classList.remove("d-none");
     detail_card.classList.add("bg-highlight");
     close_item_details();
@@ -583,7 +584,7 @@ document.getElementById("search-form").onsubmit = function (e) {
 };
 
 function close_detail() {
-  isa_card.classList.remove("d-none");
+  search_and_isa.classList.remove("d-none");
   detail_card.classList.add("d-none");
 
   close_item_details();
