@@ -13,6 +13,7 @@ srid = 4326
 
 app = Flask(__name__)
 app.debug = True
+app.config.from_object('config.default')
 
 DB_URL = "postgresql:///matcher"
 database.init_db(DB_URL)
