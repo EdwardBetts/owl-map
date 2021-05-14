@@ -510,6 +510,7 @@ function load_wikidata_items() {
   checkbox_change();
 
   close_item_details();
+  search_and_isa.classList.remove("d-none");
   detail_card.classList.add("d-none");
   loading.classList.remove("d-none");
   load_text.classList.add("d-none");
