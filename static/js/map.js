@@ -453,7 +453,14 @@ function mouse_events(marker, qid) {
               osm_html += osm.name;
             }
             if (!osm.presets.length && !osm.name) {
-              osm_html += "no name";
+              osm_html += " no name";
+            }
+            if (osm.address_list && osm.address_list.length) {
+              if (osm.address_list.length == 1) {
+                osm_html += " address node: " + osm.address_list[0];
+              } else {
+                osm_html += " address nodes: " + osm.address_list.join("; ")
+              }
             }
             osm_html += ` <a href="https://www.openstreetmap.org/${osm.identifier}" target="_blank">`
             osm_html += '<i class="fa fa-map-o"></i></a></span><br>';

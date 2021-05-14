@@ -812,33 +812,62 @@ def get_nearby(bbox, item, max_distance=200):
     return nearby[:10]
 
 
-def get_presets_from_tags(tags):
+def find_preset_file(k, v, ending):
     preset_dir = app.config["ID_PRESET_DIR"]
+
+    filename = os.path.join(preset_dir, k, v + ".json")
+    if os.path.exists(filename):
+        return {"tag_or_key": f"Tag:{k}={v}", "filename": filename}
+
+    filename = os.path.join(preset_dir, k, f"{v}_{ending}.json")
+    if os.path.exists(filename):
+        return {"tag_or_key": f"Tag:{k}={v}", "filename": filename}
+
+    filename = os.path.join(preset_dir, k, "_" + v + ".json")
+    if os.path.exists(filename):
+        return {"tag_or_key": f"Tag:{k}={v}", "filename": filename}
+
+    filename = os.path.join(preset_dir, k + ".json")
+    if os.path.exists(filename):
+        return {"tag_or_key": f"Key:{k}", "filename": filename}
+
+
+def get_presets_from_tags(osm):
     found = []
-    for k, v in tags.items():
-        if k == 'amenity' and v == 'clock' and tags.get('display') == 'sundial':
+    ending = {
+        model.Point: "point",
+        model.Line: "line",
+        model.Polygon: "area"
+    }[type(osm)]
+    for k, v in osm.tags.items():
+        if k == 'amenity' and v == 'clock' and osm.tags.get('display') == 'sundial':
             tag_or_key = f"Tag:{k}={v}"
             found.append({"tag_or_key": tag_or_key, "name": "Sundial"})
             continue
 
-        filename = os.path.join(preset_dir, k, v + ".json")
-        if os.path.exists(filename):
-            tag_or_key = f"Tag:{k}={v}"
-        else:
-            filename = os.path.join(preset_dir, k, "_" + v + ".json")
-            if os.path.exists(filename):
-                tag_or_key = f"Tag:{k}={v}"
-            else:
-                filename = os.path.join(preset_dir, k + ".json")
-                if os.path.exists(filename):
-                    tag_or_key = f"Key:{k}"
-                else:
-                    continue
-        data = json.load(open(filename))
-        name = data["name"]
-        found.append({"tag_or_key": tag_or_key, "name": name})
+        match = find_preset_file(k, v, ending)
+        if not match:
+            continue
+
+        match["name"] = json.load(open(match.pop("filename")))["name"]
+        found.append(match)
 
     return found
+
+def get_address_nodes_within_building(building, bbox):
+    db_bbox = make_envelope(bbox)
+    ewkt = building.as_EWKT
+    q = model.Point.query.filter(
+        func.ST_Intersects(db_bbox, model.Point.way),
+        func.ST_Covers(func.ST_GeomFromEWKT(ewkt), model.Point.way),
+        model.Point.tags.has_key("addr:street"),
+        model.Point.tags.has_key("addr:housenumber"),
+    )
+
+    return [node.tags for node in q]
+
+def address_from_tags(tags):
+    return " ".join(tags["addr:" + k] for k in ("street", "housenumber"))
 
 
 @app.route("/api/1/item/Q<int:item_id>/candidates")
@@ -852,15 +881,21 @@ def api_find_osm_candidates(item_id):
         tags = osm.tags
         name = osm.name or tags.get("addr:housename")
         if not name and "addr:housenumber" in tags and "addr:street" in tags:
-            name = tags["addr:housenumber"] + " " + tags["addr:street"]
+            name = address_from_tags(tags)
 
+        if isinstance(osm, model.Polygon) and "building" in osm.tags:
+            address_nodes = get_address_nodes_within_building(osm, bounds)
+            address_list = [address_from_tags(addr) for addr in address_nodes]
+        else:
+            address_list = []
         cur = {
             "identifier": osm.identifier,
             "distance": dist,
             "name": name,
             "tags": tags,
             "geojson": osm.geojson(),
-            "presets": get_presets_from_tags(tags),
+            "presets": get_presets_from_tags(osm),
+            "address_list": address_list,
         }
         if hasattr(osm, 'area'):
             cur["area"] = osm.area
