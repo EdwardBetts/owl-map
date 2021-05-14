@@ -785,14 +785,27 @@ def get_presets_from_tags(tags):
     preset_dir = app.config["ID_PRESET_DIR"]
     found = []
     for k, v in tags.items():
+        if k == 'amenity' and v == 'clock' and tags.get('display') == 'sundial':
+            tag_or_key = f"Tag:{k}={v}"
+            found.append({"tag_or_key": tag_or_key, "name": "Sundial"})
+            continue
+
         filename = os.path.join(preset_dir, k, v + ".json")
-        if not os.path.exists(filename):
-            filename = os.path.join(preset_dir, k + ".json")
-            if not os.path.exists(filename):
-                continue
+        if os.path.exists(filename):
+            tag_or_key = f"Tag:{k}={v}"
+        else:
+            filename = os.path.join(preset_dir, k, "_" + v + ".json")
+            if os.path.exists(filename):
+                tag_or_key = f"Tag:{k}={v}"
+            else:
+                filename = os.path.join(preset_dir, k + ".json")
+                if os.path.exists(filename):
+                    tag_or_key = f"Key:{k}"
+                else:
+                    continue
         data = json.load(open(filename))
         name = data["name"]
-        found.append(name)
+        found.append({"tag_or_key": tag_or_key, "name": name})
 
     return found
 

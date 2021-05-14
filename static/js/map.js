@@ -271,8 +271,9 @@ function set_isa_list(isa_count_list) {
 
 function build_item_detail(item, tag_or_key_list) {
   var wd_url = "https://www.wikidata.org/wiki/" + item.qid;
+  var popup = '<div class="row"><div class="col">'
 
-  var popup = "<p><strong>Wikidata item</strong><br>";
+  popup += "<strong>Wikidata item</strong><br>";
   popup += `<a href="${wd_url}" target="_blank">${item.label}</a> (${item.qid})`;
   if (item.description) {
     popup += `<br><strong>description</strong><br>${item.description}`;
@@ -285,6 +286,7 @@ function build_item_detail(item, tag_or_key_list) {
       popup += `<br><a href="${isa_url}" target="_blank">${isa_label}</a> (${isa_qid})`;
     }
   }
+  popup += '</div><div class="col">'
 
   if (tag_or_key_list && tag_or_key_list.length) {
     popup += "<br><strong>OSM tags/keys to search for</strong>";
@@ -298,7 +300,7 @@ function build_item_detail(item, tag_or_key_list) {
     popup += `<br>${item.street_address[0]["text"]}`;
   }
 
-  popup += "</p>";
+  popup += "</div></div>";
 
   return popup;
 }
@@ -354,6 +356,19 @@ function close_item_details() {
     candidate_outline.removeFrom(map);
     candidate_outline = undefined;
   }
+}
+
+function show_outline(osm) {
+    if (candidate_outline !== undefined) {
+      candidate_outline.removeFrom(map);
+    }
+
+    var mapStyle = { fillOpacity: 0, color: "red" };
+    var geojson = L.geoJSON(null, { style: mapStyle });
+    geojson.addData(osm.geojson);
+    geojson.addTo(map);
+
+    candidate_outline = geojson;
 }
 
 function mouse_events(marker, qid) {
@@ -422,8 +437,11 @@ function mouse_events(marker, qid) {
           for (const osm of nearby) {
             var span_id = osm.identifier.replace("/", "_");
             nearby_lookup[span_id] = osm;
-            osm_html += `<span class="osm-candidate" id="${span_id}"> ${osm.distance.toFixed(1)}m `
-            osm_html += osm.presets.join(", ");
+            osm_html += `<span class="osm-candidate" id="${span_id}"> ${osm.distance.toFixed(0)}m `
+            osm_html += osm.presets.map(function(p) {
+              var wiki_url = `http://wiki.openstreetmap.org/wiki/${p.tag_or_key}`;
+              return `<a href="${wiki_url}" class="osm-wiki-link" target="_blank">${p.name} <i class="fa fa-external-link"></i></a>`;
+            }).join(", ");
             if (osm.presets.length && osm.name) {
               osm_html += ": ";
             }
@@ -433,24 +451,15 @@ function mouse_events(marker, qid) {
             if (!osm.presets.length && !osm.name) {
               osm_html += "no name";
             }
-            osm_html += "</span><br>";
+            osm_html += ` <a href="https://www.openstreetmap.org/${osm.identifier}" target="_blank">`
+            osm_html += '<i class="fa fa-map-o"></i></a></span><br>';
           }
           candidates.innerHTML = osm_html;
           var span_list = document.getElementsByClassName("osm-candidate");
+
           for (const osm_span of span_list) {
-            osm_span.onmouseover = function (e) {
-              osm = nearby_lookup[e.target.id];
-
-              if (candidate_outline !== undefined) {
-                candidate_outline.removeFrom(map);
-              }
-
-              var mapStyle = { fillOpacity: 0, color: "red" };
-              var geojson = L.geoJSON(null, { style: mapStyle });
-              geojson.addData(osm.geojson);
-              geojson.addTo(map);
-
-              candidate_outline = geojson;
+            osm_span.onmouseenter = function (e) {
+              show_outline(nearby_lookup[e.target.id]);
             };
           }
         });
