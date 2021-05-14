@@ -399,7 +399,7 @@ function mouse_events(marker, qid) {
 
     window.setTimeout(function () {
       detail_card.classList.remove("bg-highlight");
-    }, 500);
+    }, 1000);
 
     detail_qid = qid;
 
