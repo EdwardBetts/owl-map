@@ -68,7 +68,6 @@ def check_for_tagged_qids(qids):
     for qid in qids:
         for cls in model.Point, model.Polygon, model.Line:
             q = cls.query.filter(cls.tags["wikidata"] == qid)
-            print(q)
             if q.count():
                 tagged.add(qid)
                 break
@@ -684,7 +683,6 @@ def get_items(item_ids):
     for item_id in item_ids:
         item = model.Item.query.get(item_id)
         if not item:
-            print(f"get Q{item_id}")
             if not get_and_save_item(f"Q{item_id}"):
                 continue
             item = model.Item.query.get(item_id)
@@ -707,7 +705,6 @@ def get_item_tags(item):
         if isa.qid in extra_keys:
             osm += extra_keys[isa.qid]
 
-        print(isa.qid, isa.label(), osm)
         osm_list.update(osm)
 
         subclass_of = [v["numeric-id"] for v in (isa.get_claim("P279") or []) if v]
