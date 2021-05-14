@@ -672,6 +672,8 @@ skip_isa = {
     3955017,  # intermediate good
     2424752,  # product
     19603939,  # building component
+    55638,  # tertiary sector of the economy
+    3958441,  # economic sector
 }
 skip_tags = {"Key:addr:street"}
 
