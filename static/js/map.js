@@ -438,33 +438,36 @@ function mouse_events(marker, qid) {
           var nearby = response.data.nearby;
           if (!nearby.length) return;
           var osm_html = "<strong>Possible OSM matches</strong><br>";
+          osm_html += '<table class="table table-sm table-hover">'
+          osm_html += '<tbody>'
           for (const osm of nearby) {
-            var span_id = osm.identifier.replace("/", "_");
-            nearby_lookup[span_id] = osm;
-            osm_html += `<span class="osm-candidate" id="${span_id}"> ${osm.distance.toFixed(0)}m `
+            var candidate_id = osm.identifier.replace("/", "_");
+            osm_html += `<tr class="osm-candidate" id="${candidate_id}"><td class="text-end text-nowrap">${osm.distance.toFixed(0)}m `;
+            osm_html += `<a href="https://www.openstreetmap.org/${osm.identifier}" target="_blank">`;
+            osm_html += '<i class="fa fa-map-o"></i></a>';
+            osm_html += "</td><td>";
+            nearby_lookup[candidate_id] = osm;
+            // osm_html += `<span class="osm-candidate" id="${span_id}"> ${osm.distance.toFixed(0)}m `
+            if (osm.name) {
+              osm_html += osm.name + " ";
+            }
+            if (!osm.presets.length && !osm.name) {
+              osm_html += "no name ";
+            }
             osm_html += osm.presets.map(function(p) {
               var wiki_url = `http://wiki.openstreetmap.org/wiki/${p.tag_or_key}`;
               return `<a href="${wiki_url}" class="osm-wiki-link" target="_blank">${p.name} <i class="fa fa-external-link"></i></a>`;
             }).join(", ");
-            if (osm.presets.length && osm.name) {
-              osm_html += ": ";
-            }
-            if (osm.name) {
-              osm_html += osm.name;
-            }
-            if (!osm.presets.length && !osm.name) {
-              osm_html += " no name";
-            }
             if (osm.address_list && osm.address_list.length) {
               if (osm.address_list.length == 1) {
-                osm_html += " address node: " + osm.address_list[0];
+                osm_html += "<br>address node: " + osm.address_list[0];
               } else {
-                osm_html += " address nodes: " + osm.address_list.join("; ")
+                osm_html += "<br>address nodes: " + osm.address_list.join("; ")
               }
             }
-            osm_html += ` <a href="https://www.openstreetmap.org/${osm.identifier}" target="_blank">`
-            osm_html += '<i class="fa fa-map-o"></i></a></span><br>';
+            osm_html += "</td></tr>";
           }
+          osm_html += "</tbody></table>"
           candidates.innerHTML = osm_html;
           var span_list = document.getElementsByClassName("osm-candidate");
 
