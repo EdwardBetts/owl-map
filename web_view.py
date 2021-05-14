@@ -676,6 +676,16 @@ skip_isa = {
 }
 skip_tags = {"Key:addr:street"}
 
+def get_item(item_id):
+    item = model.Item.query.get(item_id)
+    if item:
+        return item
+    item = get_and_save_item(f"Q{item_id}")
+    database.session.add(item)
+    database.session.commit()
+    return item
+
+
 def get_items(item_ids):
     items = []
     for item_id in item_ids:
