@@ -382,6 +382,10 @@ function mouse_events(marker, qid) {
   });
   marker.on("click", function () {
     var wd_item = items[qid].wikidata;
+    if (wd_item === undefined) {
+      console.log("not found:", qid);
+      return;
+    }
     search_and_isa.classList.add("d-none");
     detail_card.classList.remove("d-none");
     detail_card.classList.add("bg-highlight");
@@ -479,7 +483,6 @@ function add_wikidata_marker(item, marker_data) {
 
   var group = add_to_feature_group(item.qid, marker);
   group.addTo(map);
-  items[qid].wikidata = item;
 
   marker_data.marker = marker;
 }
@@ -491,6 +494,7 @@ function process_wikidata_items(load_items) {
     item.markers.forEach((marker_data) =>
       add_wikidata_marker(item, marker_data)
     );
+    items[qid].wikidata = item;
     wikidata_items[item.qid] = item;
 
     if (items[qid] === undefined) items[qid] = {};
