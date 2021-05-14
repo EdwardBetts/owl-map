@@ -8,7 +8,6 @@ if (start_lat || start_lng) {
     center: [start_lat, start_lng],
     zoom: zoom,
   };
-  history.replaceState(null, null, `/map/${zoom}/${start_lat}/${start_lng}`);
 }
 
 var map = L.map("map", options);
@@ -22,7 +21,6 @@ var load_text = document.getElementById("load-text");
 var isa_card = document.getElementById("isa-card");
 var detail_card = document.getElementById("detail-card");
 var detail = document.getElementById("detail");
-var detail_image = document.getElementById("detail-image");
 var detail_header = document.getElementById("detail-header");
 var search_and_isa = document.getElementById("search-and-isa");
 var detail_qid;
@@ -41,13 +39,29 @@ var isa_count = {};
 
 map.zoomControl.setPosition("topright");
 
-map.on("moveend", function (e) {
+function build_map_path() {
   var zoom = map.getZoom();
   var c = map.getCenter();
   var lat = c.lat.toFixed(5);
   var lng = c.lng.toFixed(5);
-  history.replaceState(null, null, `/map/${zoom}/${lat}/${lng}`);
-});
+  var path = `/map/${zoom}/${lat}/${lng}`;
+  if (detail_qid !== undefined) {
+    path += `?item=${detail_qid}`;
+  }
+  return path;
+}
+
+function update_map_path() {
+  history.replaceState(null, null, build_map_path());
+}
+
+function qid_from_url() {
+  const queryString = window.location.search;
+  const urlParams = new URLSearchParams(queryString);
+  return urlParams.get("item") || undefined;
+}
+
+map.on("moveend", update_map_path);
 
 var blueMarker = L.ExtraMarkers.icon({
   icon: "fa-wikidata",
@@ -101,6 +115,9 @@ function load_complete() {
   loading.classList.add("d-none");
   load_text.classList.remove("d-none");
   detail_card.classList.add("d-none");
+  if(detail_qid) {
+    open_detail(detail_qid);
+  }
 }
 
 function add_to_feature_group(qid, thing) {
@@ -272,6 +289,7 @@ function set_isa_list(isa_count_list) {
 function build_item_detail(item, tag_or_key_list) {
   var wd_url = "https://www.wikidata.org/wiki/" + item.qid;
   var popup = '<div class="row"><div class="col">'
+  var has_image = item.image_list && item.image_list.length;
 
   popup += "<strong>Wikidata item</strong><br>";
   popup += `<a href="${wd_url}" target="_blank">${item.label}</a> (${item.qid})`;
@@ -291,13 +309,23 @@ function build_item_detail(item, tag_or_key_list) {
     popup += `<br>${item.street_address[0]}`;
   }
 
-  popup += '</div><div class="col">'
-
   if (tag_or_key_list && tag_or_key_list.length) {
-    popup += "<br><strong>OSM tags/keys to search for</strong>";
+    if (!has_image) {
+      popup += '</div><div class="col">'
+    } else {
+      popup += "<br>"
+    }
+
+    popup += "<strong>OSM tags/keys to search for</strong>";
     for (const v of tag_or_key_list) {
       popup += `<br>${v}`;
     }
+  }
+
+
+  if (has_image) {
+    popup += '</div><div class="col">'
+    popup += `<img class="w-100" src="/commons/${item.image_list[0]}">`;
   }
 
   popup += "</div></div>";
@@ -347,10 +375,7 @@ function close_item_details() {
   detail_header.innerHTML = "";
   detail.innerHTML = "";
   candidates.innerHTML = "";
-  detail_qid = undefined;
-
-  detail_image.setAttribute("src", "");
-  detail_image.classList.add("d-none");
+  update_map_path();
 
   if (candidate_outline) {
     candidate_outline.removeFrom(map);
@@ -371,6 +396,99 @@ function show_outline(osm) {
     candidate_outline = geojson;
 }
 
+function open_detail(qid) {
+  var item = items[qid];
+  if (item.wikidata === undefined) {
+    console.log("not found:", qid);
+    return;
+  }
+  search_and_isa.classList.add("d-none");
+  detail_card.classList.remove("d-none");
+  detail_card.classList.add("bg-highlight");
+  close_item_details();
+  detail_qid = qid;
+
+  item.markers.forEach((marker) => {
+    var coords = marker.getLatLng();
+    var circle = L.circle(coords, { radius: 20, color: "orange" }).addTo(map);
+    selected_circles.push(circle);
+  });
+
+  window.setTimeout(function () {
+    detail_card.classList.remove("bg-highlight");
+  }, 1000);
+
+  update_map_path();
+
+  var item_label = `${item.wikidata.label} (${item.wikidata.qid})`;
+  detail_header.innerHTML = "";
+  detail_header.append(document.createTextNode(item_label));
+
+  var item_tags_url = `/api/1/item/${qid}/tags`;
+  axios.get(item_tags_url).then((response) => {
+    var tag_or_key_list = response.data.tag_or_key_list;
+    if (response.data.qid != detail_qid) {
+      tag_or_key_list = []; // different QID
+    }
+    var item_detail = build_item_detail(item.wikidata, tag_or_key_list);
+    detail.innerHTML = item_detail;
+
+    if (tag_or_key_list.length == 0) return;
+
+    var item_osm_candidates_url = `/api/1/item/${qid}/candidates`;
+    var bounds = map.getBounds();
+
+    var params = { bounds: bounds.toBBoxString() };
+
+    axios
+      .get(item_osm_candidates_url, { params: params })
+      .then((response) => {
+        if (response.data.qid != detail_qid) return; // different QID
+        var nearby = response.data.nearby;
+        if (!nearby.length) return;
+        var osm_html = "<strong>Possible OSM matches</strong><br>";
+        osm_html += '<table class="table table-sm table-hover">'
+        osm_html += '<tbody>'
+        for (const osm of nearby) {
+          var candidate_id = osm.identifier.replace("/", "_");
+          osm_html += `<tr class="osm-candidate" id="${candidate_id}"><td class="text-end text-nowrap">${osm.distance.toFixed(0)}m `;
+          osm_html += `<a href="https://www.openstreetmap.org/${osm.identifier}" target="_blank">`;
+          osm_html += '<i class="fa fa-map-o"></i></a>';
+          osm_html += "</td><td>";
+          nearby_lookup[candidate_id] = osm;
+          if (osm.name) {
+            osm_html += osm.name + " ";
+          }
+          if (!osm.presets.length && !osm.name) {
+            osm_html += "no name ";
+          }
+          osm_html += osm.presets.map(function(p) {
+            var wiki_url = `http://wiki.openstreetmap.org/wiki/${p.tag_or_key}`;
+            return `<a href="${wiki_url}" class="osm-wiki-link" target="_blank">${p.name} <i class="fa fa-external-link"></i></a>`;
+          }).join(", ");
+          if (osm.address_list && osm.address_list.length) {
+            if (osm.address_list.length == 1) {
+              osm_html += "<br>address node: " + osm.address_list[0];
+            } else {
+              osm_html += "<br>address nodes: " + osm.address_list.join("; ")
+            }
+          }
+          osm_html += "</td></tr>";
+        }
+        osm_html += "</tbody></table>"
+        candidates.innerHTML = osm_html;
+        var span_list = document.getElementsByClassName("osm-candidate");
+
+        for (const osm_span of span_list) {
+          osm_span.onmouseenter = function (e) {
+            show_outline(nearby_lookup[e.target.id]);
+          };
+        }
+      });
+  });
+
+}
+
 function mouse_events(marker, qid) {
   items[qid] ||= {};
   var item = items[qid];
@@ -381,103 +499,8 @@ function mouse_events(marker, qid) {
     mouseout(item);
   });
   marker.on("click", function () {
-    var wd_item = items[qid].wikidata;
-    if (wd_item === undefined) {
-      console.log("not found:", qid);
-      return;
-    }
-    search_and_isa.classList.add("d-none");
-    detail_card.classList.remove("d-none");
-    detail_card.classList.add("bg-highlight");
-    close_item_details();
-
-    item.markers.forEach((marker) => {
-      var coords = marker.getLatLng();
-      var circle = L.circle(coords, { radius: 20, color: "orange" }).addTo(map);
-      selected_circles.push(circle);
-    });
-
-    window.setTimeout(function () {
-      detail_card.classList.remove("bg-highlight");
-    }, 1000);
-
     detail_qid = qid;
-
-    if (wd_item.image_list && wd_item.image_list.length) {
-      detail_image.setAttribute("src", `/commons/${wd_item.image_list[0]}`);
-      detail_image.classList.remove("d-none");
-    } else {
-      detail_image.setAttribute("src", "");
-      detail_image.classList.add("d-none");
-    }
-
-    var item_label = `${wd_item.label} (${wd_item.qid})`;
-    detail_header.innerHTML = "";
-    detail_header.append(document.createTextNode(item_label));
-
-    var item_tags_url = `/api/1/item/${qid}/tags`;
-    axios.get(item_tags_url).then((response) => {
-      var tag_or_key_list = response.data.tag_or_key_list;
-      if (response.data.qid != detail_qid) {
-        tag_or_key_list = []; // different QID
-      }
-      var item_detail = build_item_detail(wd_item, tag_or_key_list);
-      detail.innerHTML = item_detail;
-
-      if (tag_or_key_list.length == 0) return;
-
-      var item_osm_candidates_url = `/api/1/item/${qid}/candidates`;
-      var bounds = map.getBounds();
-
-      var params = { bounds: bounds.toBBoxString() };
-
-      axios
-        .get(item_osm_candidates_url, { params: params })
-        .then((response) => {
-          if (response.data.qid != detail_qid) return; // different QID
-          var nearby = response.data.nearby;
-          if (!nearby.length) return;
-          var osm_html = "<strong>Possible OSM matches</strong><br>";
-          osm_html += '<table class="table table-sm table-hover">'
-          osm_html += '<tbody>'
-          for (const osm of nearby) {
-            var candidate_id = osm.identifier.replace("/", "_");
-            osm_html += `<tr class="osm-candidate" id="${candidate_id}"><td class="text-end text-nowrap">${osm.distance.toFixed(0)}m `;
-            osm_html += `<a href="https://www.openstreetmap.org/${osm.identifier}" target="_blank">`;
-            osm_html += '<i class="fa fa-map-o"></i></a>';
-            osm_html += "</td><td>";
-            nearby_lookup[candidate_id] = osm;
-            // osm_html += `<span class="osm-candidate" id="${span_id}"> ${osm.distance.toFixed(0)}m `
-            if (osm.name) {
-              osm_html += osm.name + " ";
-            }
-            if (!osm.presets.length && !osm.name) {
-              osm_html += "no name ";
-            }
-            osm_html += osm.presets.map(function(p) {
-              var wiki_url = `http://wiki.openstreetmap.org/wiki/${p.tag_or_key}`;
-              return `<a href="${wiki_url}" class="osm-wiki-link" target="_blank">${p.name} <i class="fa fa-external-link"></i></a>`;
-            }).join(", ");
-            if (osm.address_list && osm.address_list.length) {
-              if (osm.address_list.length == 1) {
-                osm_html += "<br>address node: " + osm.address_list[0];
-              } else {
-                osm_html += "<br>address nodes: " + osm.address_list.join("; ")
-              }
-            }
-            osm_html += "</td></tr>";
-          }
-          osm_html += "</tbody></table>"
-          candidates.innerHTML = osm_html;
-          var span_list = document.getElementsByClassName("osm-candidate");
-
-          for (const osm_span of span_list) {
-            osm_span.onmouseenter = function (e) {
-              show_outline(nearby_lookup[e.target.id]);
-            };
-          }
-        });
-    });
+    open_detail(qid);
   });
 
   item.markers ||= [];
@@ -560,7 +583,7 @@ function load_wikidata_items() {
         <br>
         Wikidata tag: <a href="${wd_url}" target="_blank">${qid}</a>
       </p>`;
-      // marker.bindPopup(popup);
+
       mouse_events(marker, qid);
 
       var group = add_to_feature_group(qid, marker);
@@ -612,8 +635,16 @@ function close_detail() {
   detail_card.classList.add("d-none");
 
   close_item_details();
+  detail_qid = undefined;
 }
 
 document.getElementById("load-btn").onclick = load_wikidata_items;
 document.getElementById("show-all-isa").onclick = show_all_isa;
 document.getElementById("close-detail").onclick = close_detail;
+
+detail_qid = qid_from_url();
+update_map_path();
+
+if(detail_qid) {
+  load_wikidata_items();
+}
