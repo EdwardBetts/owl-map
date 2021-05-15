@@ -331,6 +331,9 @@ def get_isa_count(items):
     for item in items:
         isa_list = item.get_claim("P31")
         for isa in isa_list:
+            if not isa:
+                print("missing IsA:", item.qid)
+                continue
             isa_count[isa["id"]] += 1
 
     return isa_count.most_common()
