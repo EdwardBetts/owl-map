@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, g
 from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
 from matcher import nominatim, model, database, commons, wikidata, wikidata_api
@@ -10,8 +10,10 @@ from geoalchemy2 import Geography
 import os
 import json
 import GeoIP
+import re
 
 srid = 4326
+re_point = re.compile(r'^POINT\((.+) (.+)\)$')
 
 app = Flask(__name__)
 app.debug = True
@@ -153,11 +155,14 @@ def get_item_street_addresses(item):
             continue
         number = qualifiers["P670"][0]["datavalue"]["value"]
 
-        street = get_item(claim["mainsnak"]["datavalue"]["value"]["numeric-id"])
-        street_name = street.label()
+        street_item = get_item(claim["mainsnak"]["datavalue"]["value"]["numeric-id"])
+        street = street_item.label()
         for q in qualifiers["P670"]:
             number = q["datavalue"]["value"]
-            street_address.append(f"{street_name} {number}")
+            address = (f"{number} {street}"
+                       if g.street_number_first
+                       else f"{street} {number}")
+            street_address.append(address)
 
     return street_address
 
@@ -354,10 +359,17 @@ def get_and_save_item(qid):
 
     return item
 
+def get_bbox_centroid(bbox):
+    bbox = make_envelope(bbox)
+    centroid = database.session.query(func.ST_AsText(func.ST_Centroid(bbox))).scalar()
+    lon, lat = re_point.match(centroid).groups()
+
+    return lat, lon
 
 @app.route("/api/1/items")
 def api_wikidata_items():
     bounds = request.args.get("bounds")
+    g.street_number_first = is_street_number_first(*get_bbox_centroid(bounds))
     t0 = time()
     q = get_items_in_bbox(bounds)
     db_items = q.all()
@@ -765,6 +777,28 @@ def get_tag_filter(cls, tag_list):
 
     return tag_filter
 
+def get_country_iso3166_1(lat, lon):
+    point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), srid)
+    alpha2_codes = set()
+    q = model.Polygon.query.filter(func.ST_Covers(model.Polygon.way, point),
+                                   model.Polygon.admin_level == "2")
+    for country in q:
+        alpha2 = country.tags.get("ISO3166-1")
+        if not alpha2:
+            continue
+        alpha2_codes.add(alpha2)
+
+    return alpha2_codes
+
+def is_street_number_first(lat, lon):
+    if lat is None or lon is None:
+        return True
+
+    alpha2 = get_country_iso3166_1(lat, lon)
+    alpha2_number_first = {'GB', 'IE', 'US', 'MX', 'CA', 'FR', 'AU', 'NZ', 'ZA'}
+
+    return bool(alpha2_number_first & alpha2)
+
 def get_nearby(bbox, item, max_distance=200):
     db_bbox = make_envelope(bbox)
 
@@ -867,12 +901,16 @@ def get_address_nodes_within_building(building, bbox):
     return [node.tags for node in q]
 
 def address_from_tags(tags):
-    return " ".join(tags["addr:" + k] for k in ("street", "housenumber"))
+    keys = ["street", "housenumber"]
+    if g.street_number_first:
+        keys.reverse()
+    return " ".join(tags["addr:" + k] for k in keys)
 
 
 @app.route("/api/1/item/Q<int:item_id>/candidates")
 def api_find_osm_candidates(item_id):
     bounds = request.args.get("bounds")
+    g.street_number_first = is_street_number_first(*get_bbox_centroid(bounds))
 
     t0 = time()
     item = model.Item.query.get(item_id)
@@ -912,6 +950,9 @@ def api_missing_wikidata_items():
     qids = qids_arg.split(",")
     if not qids or not qids[0]:
         return jsonify(success=True, items=[], isa_count=[])
+
+    lat, lon = request.args.get("lat"), request.args.get("lon")
+    g.street_number_first = is_street_number_first(lat, lon)
 
     db_items = []
     for qid in qids:
