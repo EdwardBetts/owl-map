@@ -19,6 +19,7 @@ var osm_loaded = false;
 var loading = document.getElementById("loading");
 var load_text = document.getElementById("load-text");
 var isa_card = document.getElementById("isa-card");
+var link_status_card = document.getElementById("link-status-card");
 var detail_card = document.getElementById("detail-card");
 var detail = document.getElementById("detail");
 var detail_header = document.getElementById("detail-header");
@@ -26,6 +27,10 @@ var search_and_isa = document.getElementById("search-and-isa");
 var detail_qid;
 var candidates = document.getElementById("candidates");
 var checkbox_list = document.getElementsByClassName("isa-checkbox");
+
+var linked = document.getElementById("linked");
+var not_linked = document.getElementById("not-linked");
+
 var nearby_lookup = {};
 var isa_labels = {};
 var items_url = "/api/1/items";
@@ -168,6 +173,9 @@ function update_wikidata(check_for_missing = true) {
     }
   }
 
+  var linked_count = 0;
+  var not_linked_count = 0;
+
   for (const qid in osm_objects) {
     var osm_list = osm_objects[qid];
 
@@ -191,15 +199,23 @@ function update_wikidata(check_for_missing = true) {
     });
   }
   for (const qid in wikidata_items) {
-    if (osm_objects[qid]) continue;
+    if (osm_objects[qid]) {
+      linked_count += 1;
+      continue;
+    }
+    not_linked_count += 1;
     var item = wikidata_items[qid];
     item.markers.forEach((marker_data) => {
       marker_data.marker.setIcon(redMarker);
     });
   }
 
+  document.getElementById("linked-count").textContent = linked_count;
+  document.getElementById("not-linked-count").textContent = not_linked_count;
+
   var isa_count_values = Object.values(isa_count);
   set_isa_list(isa_count_values);
+  link_status_card.classList.remove("d-none");
   load_complete();
 }
 
@@ -234,19 +250,47 @@ function checkbox_change() {
   for (const qid in items) {
     var item = items[qid];
     if (item.group === undefined) continue;
-
     if (item.isa_list === undefined) continue;
-    const item_isa_list = item.isa_list;
-    const intersection = ticked.filter((isa_qid) =>
-      item_isa_list.includes(isa_qid)
-    );
 
-    if (intersection.length) {
+    var show_item = true;
+
+    if (osm_objects[qid] && !linked.checked) {
+      show_item = false;
+    }
+
+    if (!osm_objects[qid] && !not_linked.checked) {
+      show_item = false;
+    }
+
+    if (show_item) {
+      const item_isa_list = item.isa_list;
+      const intersection = ticked.filter((isa_qid) =>
+        item_isa_list.includes(isa_qid)
+      );
+
+      if (intersection.length == 0) {
+        show_item = false;
+      }
+    }
+
+    if (show_item) {
       item.group.addTo(map);
     } else {
       item.group.removeFrom(map);
     }
   }
+}
+
+function link_status_change() {
+  if (!linked.checked && !not_linked.checked) {
+    for (const qid in items) {
+      var item = items[qid];
+      item.group.removeFrom(map);
+    }
+  }
+
+
+
 }
 
 function set_isa_list(isa_count_list) {
@@ -543,6 +587,8 @@ function load_wikidata_items() {
   var checkbox_list = document.getElementsByClassName("isa-checkbox");
 
   for (const checkbox of checkbox_list) checkbox.checked = true;
+  linked.checked = true;
+  not_linked.checked = true;
 
   checkbox_change();
 
@@ -566,6 +612,7 @@ function load_wikidata_items() {
 
     wikidata_loaded = true;
     isa_card.classList.remove("d-none");
+    link_status_card.classList.remove("d-none");
     update_wikidata();
   });
 
@@ -646,6 +693,9 @@ function close_detail() {
 document.getElementById("load-btn").onclick = load_wikidata_items;
 document.getElementById("show-all-isa").onclick = show_all_isa;
 document.getElementById("close-detail").onclick = close_detail;
+
+linked.onchange = checkbox_change;
+not_linked.onchange = checkbox_change;
 
 detail_qid = qid_from_url();
 update_map_path();
