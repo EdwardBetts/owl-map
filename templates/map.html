@@ -64,7 +64,6 @@
     var start_lat = {{ lat | tojson }};
     var start_lng = {{ lng | tojson }};
     var zoom = {{ zoom | tojson }};
-    var bbox_list = {{ (bbox_list or []) | tojson }};
 
     </script>
   <script src="https://unpkg.com/axios@latest"></script>
