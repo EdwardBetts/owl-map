@@ -640,6 +640,7 @@ function close_detail() {
 
   close_item_details();
   detail_qid = undefined;
+  update_map_path();
 }
 
 document.getElementById("load-btn").onclick = load_wikidata_items;
