@@ -177,7 +177,7 @@ def get_markers(all_items):
             "markers": locations,
             "image_list": image_filenames,
             "street_address": street_address,
-            "isa_list": [v["id"] for v in item.get_claim("P31")],
+            "isa_list": [v["id"] for v in item.get_claim("P31") if v],
         }
         items.append(item)
 

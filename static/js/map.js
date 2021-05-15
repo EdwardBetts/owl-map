@@ -146,7 +146,12 @@ function update_wikidata(check_for_missing = true) {
     }
 
     if (missing_qids.length) {
-      var params = { qids: missing_qids.join(",") };
+      var c = map.getCenter();
+      var params = {
+        qids: missing_qids.join(","),
+        lat: c.lat.toFixed(5),
+        lon: c.lng.toFixed(5),
+      };
       axios.get(missing_url, { params: params }).then((response) => {
         response.data.isa_count.forEach((isa) => {
           isa_labels[isa.qid] = isa.label;
@@ -437,7 +442,6 @@ function open_detail(qid) {
 
     var item_osm_candidates_url = `/api/1/item/${qid}/candidates`;
     var bounds = map.getBounds();
-
     var params = { bounds: bounds.toBBoxString() };
 
     axios
