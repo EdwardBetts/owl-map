@@ -170,12 +170,14 @@ def get_item_street_addresses(item):
 def get_markers(all_items):
     items = []
     for item in all_items:
+        if not item:
+            continue
         locations = [list(i.get_lat_lon()) for i in item.locations]
         image_filenames = item.get_claim("P18")
 
         street_address = get_item_street_addresses(item)
 
-        item = {
+        d = {
             "qid": item.qid,
             "label": item.label(),
             "description": item.description(),
@@ -184,7 +186,11 @@ def get_markers(all_items):
             "street_address": street_address,
             "isa_list": [v["id"] for v in item.get_claim("P31") if v],
         }
-        items.append(item)
+
+        if aliases := item.get_aliases():
+            d["aliases"] = aliases
+
+        items.append(d)
 
     return items
 
@@ -345,6 +351,8 @@ def search_page():
 def get_isa_count(items):
     isa_count = Counter()
     for item in items:
+        if not item:
+            continue
         isa_list = item.get_claim("P31")
         for isa in isa_list:
             if not isa:
@@ -357,9 +365,11 @@ def get_isa_count(items):
 
 def get_and_save_item(qid):
     entity = wikidata_api.get_entity(qid)
-    if entity["id"] != qid:
-        print(f'redirect {qid} -> {entity["id"]}')
-        return
+    entity_qid = entity["id"]
+    if entity_qid != qid:
+        print(f'redirect {qid} -> {entity_qid}')
+        item = model.Item.query.get(entity_qid[1:])
+        return item
 
     coords = wikidata.get_entity_coords(entity["claims"])
 
@@ -417,7 +427,9 @@ def api_wikidata_items():
     t1 = time() - t0
     print(f"wikidata: {t1} seconds")
 
-    return jsonify(success=True, items=items, isa_count=isa_count, duration=t1)
+    response = jsonify(success=True, items=items, isa_count=isa_count, duration=t1)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
 
 
 @app.route("/api/1/osm")
@@ -427,11 +439,13 @@ def api_osm_objects():
     objects = get_osm_with_wikidata_tag(bounds)
     t1 = time() - t0
     print(f"OSM: {t1} seconds")
-    return jsonify(success=True, objects=objects, duration=t1)
+    response = jsonify(success=True, objects=objects, duration=t1)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
 
 
 edu = ['Tag:amenity=college', 'Tag:amenity=university', 'Tag:amenity=school',
-       'Tag:office=educational_institution']
+        'Tag:office=educational_institution', 'Tag:building=university']
 tall = ['Key:height', 'Key:building:levels']
 
 extra_keys = {
@@ -449,6 +463,7 @@ extra_keys = {
     'Q5167149': edu,                            # cooking school
     'Q7894959': edu,                            # University Technical College
     'Q47530379': edu,                           # agricultural college
+    'Q38723': edu,                              # higher education institution
     'Q11303': tall,                             # skyscraper
     'Q18142': tall,                             # high-rise building
     'Q33673393': tall,                          # multi-storey building
@@ -591,6 +606,10 @@ extra_keys = {
                 'Tag:landuse=recreation_ground'],
     'Q4830453': ['Key:office',
                  'Tag:building=office'],        # business
+    'Q43229': ['Key:office',
+               'Tag:building=office'],          # organization
+    'Q17084016': ['Tag:office=association',
+                  'Tag:office=ngo'],            # nonprofit corporation
 }
 
 skip_isa = {
@@ -664,7 +683,6 @@ skip_isa = {
     3563237,  # economic unit
     2198779,  # unit
     7184903,  # abstract object
-    43229,  # organization
     16334295,  # group of humans
     16334298,  # group of living things
     61961344,  # group of physical objects
@@ -727,6 +745,7 @@ skip_isa = {
     19603939,  # building component
     55638,  # tertiary sector of the economy
     3958441,  # economic sector
+    7406919,  # service
 }
 skip_tags = {"Key:addr:street"}
 
@@ -782,8 +801,10 @@ def api_get_item_tags(item_id):
     item = model.Item.query.get(item_id)
     osm_list = get_item_tags(item)
     t1 = time() - t0
-    return jsonify(success=True, qid=item.qid, tag_or_key_list=osm_list, duration=t1)
 
+    response = jsonify(success=True, qid=item.qid, tag_or_key_list=osm_list, duration=t1)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
 
 def get_tag_filter(cls, tag_list):
     tag_filter = []
@@ -827,10 +848,15 @@ def get_nearby(bbox, item, max_distance=200):
     if not tag_list:
         return []
 
+    item_is_street = item.is_street()
+
     for loc in item.locations:
         lat, lon = loc.get_lat_lon()
         point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
         for cls in model.Point, model.Line, model.Polygon:
+            if item_is_street and cls == model.Point:
+                continue
+
             tag_filter = get_tag_filter(cls, tag_list)
             dist = func.ST_Distance(point, cls.way.cast(Geography(srid=4326)))
 
@@ -840,6 +866,10 @@ def get_nearby(bbox, item, max_distance=200):
                               func.ST_Area(cls.way) < 20 * func.ST_Area(db_bbox),
                               or_(*tag_filter))
                           .order_by(point.distance_centroid(cls.way)))
+
+            if item_is_street:
+                q = q.filter(cls.tags.has_key("name"),
+                             cls.tags["highway"] != 'bus_stop')
 
             if "Key:amenity" in tag_list:
                 q = q.filter(cls.tags["amenity"] != "bicycle_parking",
@@ -960,7 +990,9 @@ def api_find_osm_candidates(item_id):
         nearby.append(cur)
 
     t1 = time() - t0
-    return jsonify(success=True, qid=item.qid, nearby=nearby, duration=t1)
+    response = jsonify(success=True, qid=item.qid, nearby=nearby, duration=t1)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
 
 
 @app.route("/api/1/missing")
@@ -1000,7 +1032,9 @@ def api_missing_wikidata_items():
         }
         isa_count.append(isa)
 
-    return jsonify(success=True, items=items, isa_count=isa_count)
+    response = jsonify(success=True, items=items, isa_count=isa_count)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
 
 
 @app.route("/api/1/search")
@@ -1011,8 +1045,32 @@ def api_search():
         if "geotext" in hit:
             del hit["geotext"]
         hit["name"] = nominatim.get_hit_name(hit)
+        hit["identifier"] = f"{hit['osm_type']}/{hit['osm_id']}"
 
-    return jsonify(hits=hits)
+    response = jsonify(hits=hits)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
+
+@app.route("/refresh/Q<int:item_id>")
+def refresh_item(item_id):
+    assert not model.Item.query.get(item_id)
+
+    qid = f'Q{item_id}'
+    entity = wikidata_api.get_entity(qid)
+    entity_qid = entity.pop("id")
+    assert qid == entity_qid
+
+    coords = wikidata.get_entity_coords(entity["claims"])
+    assert coords
+
+    obj = {k: v for k, v in entity.items() if k in entity_keys}
+    item = model.Item(item_id=item_id, **obj)
+    print(item)
+    item.locations = model.location_objects(coords)
+    database.session.add(item)
+    database.session.commit()
+
+    return 'done'
 
 
 if __name__ == "__main__":
