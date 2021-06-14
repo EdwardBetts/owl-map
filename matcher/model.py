@@ -58,6 +58,13 @@ class Item(Base):
         if d_list:
             return d_list[0]['value']
 
+    def get_aliases(self, lang='en'):
+        if lang not in self.aliases:
+            if 'en' not in self.aliases:
+                return []
+            lang = 'en'
+        return [a['value'] for a in self.aliases[lang]]
+
     def get_part_of_names(self):
         if not self.claims:
             return set()
@@ -127,6 +134,9 @@ class Item(Base):
                 break
 
         return dict(d) or None
+
+    def is_street(self):
+        return any(v and v["id"] == 'Q79007' for v in self.get_claim("P31"))
 
 
 # class Claim(Base):
