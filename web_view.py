@@ -273,14 +273,30 @@ def identifier_page(pid):
     )
 
 
-@app.route("/map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lng>")
-def map_location(zoom, lat, lng):
+@app.route("/old_map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lng>")
+def old_map_location(zoom, lat, lng):
     t = int(time())
     return render_template("map.html", zoom=zoom, lat=lat, lng=lng, time=t)
 
 
 @app.route("/map")
 def map_start_page():
+    location = get_user_location()
+    lat, lon = location
+    return redirect(url_for(
+        'map_location',
+        zoom=16,
+        lat=f'{lat:.5f}',
+        lon=f'{lon:.5f}'
+    ))
+
+@app.route("/map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lon>")
+def map_location(zoom, lat, lon):
+    return render_template("map.html", zoom=zoom, lat=lat, lon=lon)
+
+
+@app.route("/old_map")
+def old_map_start_page():
     t = int(time())
     location = get_user_location()
     if not location:
