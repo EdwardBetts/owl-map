@@ -23,6 +23,8 @@ DB_URL = "postgresql:///matcher"
 database.init_db(DB_URL)
 entity_keys = {"labels", "sitelinks", "aliases", "claims", "descriptions", "lastrevid"}
 
+re_qid = re.compile(r'^Q\d+$')
+
 property_map = [
     ("P238", ["iata"], "IATA airport code"),
     ("P239", ["icao"], "ICAO airport code"),
@@ -998,8 +1000,20 @@ def api_find_osm_candidates(item_id):
 @app.route("/api/1/missing")
 def api_missing_wikidata_items():
     qids_arg = request.args.get("qids")
-    qids = qids_arg.split(",")
-    if not qids or not qids[0]:
+    if not qids_arg:
+        return jsonify(success=False,
+                       error="required parameter 'qids' is missing",
+                       items=[],
+                       isa_count=[])
+
+    qids = []
+    for qid in qids_arg.upper().split(","):
+        qid = qid.strip()
+        m = re_qid.match(qid)
+        if not m:
+            continue
+        qids.append(qid)
+    if not qids:
         return jsonify(success=True, items=[], isa_count=[])
 
     lat, lon = request.args.get("lat"), request.args.get("lon")
