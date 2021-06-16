@@ -11,6 +11,21 @@
       Loading ...
     </span>
   </button>
+
+	<div v-if="current_item && wd_item.image_list.length" class="modal fade" id="imageModal" tabindex="-1">
+		<div class="modal-dialog modal-dialog-centered modal-lg">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">Image from Wikidata</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body">
+          <img class="img-fluid" :src="api_base_url + '/commons/' + wd_item.image_list[0]">
+				</div>
+			</div>
+		</div>
+	</div>
+
   <div id="sidebar">
 
     <div v-if="!current_item">
@@ -115,7 +130,13 @@
           </span>
 
           <span v-if="wd_item.image_list.length">
-            <img class="w-100" :src="api_base_url + '/commons/' + wd_item.image_list[0]">
+            <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal">
+              <img class="w-100" :src="api_base_url + '/commons/' + wd_item.image_list[0]">
+            </a>
+            <br/>
+            <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal">
+              enlarge image
+            </a>
           </span>
 
         </div></div>
