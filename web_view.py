@@ -951,6 +951,21 @@ def get_address_nodes_within_building(building, bbox):
 
     return [node.tags for node in q]
 
+def get_part_of(thing, bbox):
+    db_bbox = make_envelope(bbox)
+    ewkt = thing.as_EWKT
+    q = model.Polygon.query.filter(
+        func.ST_Intersects(db_bbox, model.Polygon.way),
+        func.ST_Covers(model.Polygon.way, func.ST_GeomFromEWKT(ewkt)),
+        or_(
+            model.Polygon.tags.has_key("landuse"),
+            model.Polygon.tags.has_key("amenity"),
+        ),
+        model.Polygon.tags.has_key("name"),
+    )
+
+    return [polygon.tags for polygon in q]
+
 def address_from_tags(tags):
     keys = ["street", "housenumber"]
     if g.street_number_first:
@@ -988,6 +1003,10 @@ def api_find_osm_candidates(item_id):
         }
         if hasattr(osm, 'area'):
             cur["area"] = osm.area
+
+        part_of = [i["name"] for i in get_part_of(osm, bounds) if i["name"] != name]
+        if part_of:
+            cur["part_of"] = part_of
 
         nearby.append(cur)
 

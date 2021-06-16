@@ -146,6 +146,11 @@
                 <span v-if="osm.address_list.length">
                     <br>address nodes: {{ osm.address_list.join("; ") }}
                 </span>
+
+                <span v-if="osm.part_of">
+                    <br>part of: {{ osm.part_of.join("; ") }}
+                </span>
+
                 </td>
               </tr>
             </tbody>
