@@ -137,7 +137,11 @@ class Item(Base):
         return dict(d) or None
 
     def is_street(self):
-        return any(v and v["id"] == 'Q79007' for v in self.get_claim("P31"))
+        street_items = {
+            'Q79007',  # street
+            'Q21000333',  # shopping street
+        }
+        return any(v and v["id"] in street_items for v in self.get_claim("P31"))
 
 
 # class Claim(Base):
