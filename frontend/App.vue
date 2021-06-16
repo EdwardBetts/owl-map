@@ -231,6 +231,7 @@ export default {
       check_for_missing_done: false,
       selected_circles: [],
       hover_isa: undefined,
+      detail_qid: undefined,
     };
   },
   computed: {
@@ -338,6 +339,11 @@ export default {
     }
   },
   methods: {
+    qid_from_url() {
+      const queryString = window.location.search;
+      const urlParams = new URLSearchParams(queryString);
+      return urlParams.get("item") || undefined;
+    },
     isa_tick_all() {
       this.isa_ticked = Object.keys(this.isa_labels);
     },
@@ -511,7 +517,6 @@ export default {
       this.check_for_missing_done = false;
 
       this.clear_items();
-
       this.close_item();
 
       this.wikidata_loading = true;
@@ -578,7 +583,6 @@ export default {
       if (this.check_for_missing_done) return;
       if (!this.osm_loaded || !this.wikidata_loaded) return;
 
-
       var missing_qids = [];
       for (const [qid, item] of Object.entries(this.items)) {
         if (!item.wikidata) missing_qids.push(qid);
@@ -587,6 +591,8 @@ export default {
       console.log('missing:', missing_qids);
       if (missing_qids.length == 0) {
         this.update_wikidata();
+        this.check_for_missing_done = true;
+        this.start_item();
         return;
       }
 
@@ -611,7 +617,14 @@ export default {
 
         this.process_wikidata_items(response.data.items);
         this.update_wikidata();
+        this.check_for_missing_done = true;
+        this.start_item();
       });
+    },
+    start_item() {
+      if (!this.detail_qid) return;
+      this.open_item(this.detail_qid);
+      this.detail_qid = undefined;
     },
     update_wikidata() {
       for (const qid in this.items) {
@@ -670,6 +683,11 @@ export default {
 
       map.on("moveend", this.update_map_path);
       this.map = map;
+
+      this.detail_qid = this.qid_from_url();
+      if (this.detail_qid) {
+        this.load_wikidata_items();
+      }
     });
 
   },
