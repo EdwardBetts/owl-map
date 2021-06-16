@@ -1,12 +1,15 @@
 #!/usr/bin/python3
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, g
+from flask import (Flask, render_template, request, jsonify, redirect, url_for, g,
+                   flash, session)
 from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
-from matcher import nominatim, model, database, commons, wikidata, wikidata_api
+from matcher import nominatim, model, database, commons, wikidata, wikidata_api, osm_oauth
 from collections import Counter
 from time import time
 from geoalchemy2 import Geography
+from requests_oauthlib import OAuth1Session
+import flask_login
 import os
 import json
 import GeoIP
@@ -18,6 +21,11 @@ re_point = re.compile(r'^POINT\((.+) (.+)\)$')
 app = Flask(__name__)
 app.debug = True
 app.config.from_object('config.default')
+
+login_manager = flask_login.LoginManager(app)
+login_manager.login_view = 'login_route'
+osm_api_base = 'https://api.openstreetmap.org/api/0.6'
+
 
 DB_URL = "postgresql:///matcher"
 database.init_db(DB_URL)
@@ -1104,6 +1112,99 @@ def refresh_item(item_id):
     database.session.commit()
 
     return 'done'
+
+@app.route('/login')
+def login_openstreetmap():
+    return redirect(url_for('start_oauth',
+                            next=request.args.get('next')))
+
+@app.route('/logout')
+def logout():
+    next_url = request.args.get('next') or url_for('index')
+    flask_login.logout_user()
+    flash('you are logged out')
+    return redirect(next_url)
+
+@app.route('/done/')
+def done():
+    flash('login successful')
+    return redirect(url_for('index'))
+
+@app.route('/oauth/start')
+def start_oauth():
+    next_page = request.args.get('next')
+    if next_page:
+        session['next'] = next_page
+
+    client_key = app.config['CLIENT_KEY']
+    client_secret = app.config['CLIENT_SECRET']
+
+    request_token_url = 'https://www.openstreetmap.org/oauth/request_token'
+
+    callback = url_for('oauth_callback', _external=True)
+
+    oauth = OAuth1Session(client_key,
+                          client_secret=client_secret,
+                          callback_uri=callback)
+    fetch_response = oauth.fetch_request_token(request_token_url)
+
+    session['owner_key'] = fetch_response.get('oauth_token')
+    session['owner_secret'] = fetch_response.get('oauth_token_secret')
+
+    base_authorization_url = 'https://www.openstreetmap.org/oauth/authorize'
+    authorization_url = oauth.authorization_url(base_authorization_url,
+                                                oauth_consumer_key=client_key)
+    return redirect(authorization_url)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return model.User.query.get(user_id)
+
+@app.route("/oauth/callback", methods=["GET"])
+def oauth_callback():
+    client_key = app.config['CLIENT_KEY']
+    client_secret = app.config['CLIENT_SECRET']
+
+    oauth = OAuth1Session(client_key,
+                          client_secret=client_secret,
+                          resource_owner_key=session['owner_key'],
+                          resource_owner_secret=session['owner_secret'])
+
+    oauth_response = oauth.parse_authorization_response(request.url)
+    verifier = oauth_response.get('oauth_verifier')
+    access_token_url = 'https://www.openstreetmap.org/oauth/access_token'
+    oauth = OAuth1Session(client_key,
+                          client_secret=client_secret,
+                          resource_owner_key=session['owner_key'],
+                          resource_owner_secret=session['owner_secret'],
+                          verifier=verifier)
+
+    oauth_tokens = oauth.fetch_access_token(access_token_url)
+    session['owner_key'] = oauth_tokens.get('oauth_token')
+    session['owner_secret'] = oauth_tokens.get('oauth_token_secret')
+
+    r = oauth.get(osm_api_base + '/user/details')
+    info = osm_oauth.parse_userinfo_call(r.content)
+
+    user = model.User.query.filter_by(osm_id=info['id']).one_or_none()
+
+    if user:
+        user.osm_oauth_token = oauth_tokens.get('oauth_token')
+        user.osm_oauth_token_secret = oauth_tokens.get('oauth_token_secret')
+    else:
+        user = model.User(
+            username=info['username'],
+            description=info['description'],
+            img=info['img'],
+            osm_id=info['id'],
+            osm_account_created=info['account_created'],
+        )
+        database.session.add(user)
+    database.session.commit()
+    flask_login.login_user(user)
+
+    next_page = session.get('next') or url_for('index_page')
+    return redirect(next_page)
 
 
 if __name__ == "__main__":

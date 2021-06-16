@@ -2,14 +2,15 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.schema import ForeignKey, Column
 from sqlalchemy.orm import relationship, column_property, deferred
 from sqlalchemy import func
-from sqlalchemy.types import Integer, String, Float
+from sqlalchemy.types import Integer, String, Float, Boolean, DateTime, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.expression import cast
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.declarative import declared_attr
 from geoalchemy2 import Geography, Geometry
 from collections import defaultdict
-from .database import session
+from flask_login import UserMixin
+from .database import session, now_utc
 from . import wikidata, utils
 import json
 import re
@@ -263,3 +264,30 @@ class Polygon(MapMixin, Base):
     @hybrid_property
     def area_in_sq_km(self):
         return self.area / (1000 * 1000)
+
+
+class User(Base, UserMixin):
+    __tablename__ = 'user'
+    id = Column(Integer, primary_key=True)
+    username = Column(String)
+    password = Column(String)
+    name = Column(String)
+    email = Column(String)
+    active = Column(Boolean, default=True)
+    sign_up = Column(DateTime, default=now_utc())
+    is_admin = Column(Boolean, default=False)
+    description = Column(Text)
+    img = Column(String)  # OSM avatar
+    languages = Column(postgresql.ARRAY(String))
+    single = Column(String)
+    multi = Column(String)
+    units = Column(String)
+    wikipedia_tag = Column(Boolean, default=False)
+
+    osm_id = Column(Integer, index=True)
+    osm_account_created = Column(DateTime)
+    osm_oauth_token = Column(String)
+    osm_oauth_token_secret = Column(String)
+
+    def is_active(self):
+        return self.active
