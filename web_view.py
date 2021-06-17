@@ -75,6 +75,10 @@ def shutdown_session(exception=None):
     database.session.remove()
 
 
+@app.before_request
+def global_user():
+    g.user = flask_login.current_user._get_current_object()
+
 def check_for_tagged_qids(qids):
     tagged = set()
     for qid in qids:
