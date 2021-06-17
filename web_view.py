@@ -838,6 +838,7 @@ def get_country_iso3166_1(lat, lon):
             continue
         alpha2_codes.add(alpha2)
 
+    g.alpha2_codes = alpha2_codes
     return alpha2_codes
 
 def is_street_number_first(lat, lon):
@@ -906,32 +907,54 @@ def get_nearby(bbox, item, max_distance=200):
 
 
 def find_preset_file(k, v, ending):
-    preset_dir = app.config["ID_PRESET_DIR"]
+    ts_dir = app.config["ID_TAGGING_SCHEMA_DIR"]
+    preset_dir = os.path.join(ts_dir, "data", "presets")
 
     filename = os.path.join(preset_dir, k, v + ".json")
     if os.path.exists(filename):
-        return {"tag_or_key": f"Tag:{k}={v}", "filename": filename}
+        return {
+            "tag_or_key": f"Tag:{k}={v}",
+            "preset": f"{k}/{v}",
+            "filename": filename,
+        }
 
     filename = os.path.join(preset_dir, k, f"{v}_{ending}.json")
     if os.path.exists(filename):
-        return {"tag_or_key": f"Tag:{k}={v}", "filename": filename}
+        return {
+            "tag_or_key": f"Tag:{k}={v}",
+            "preset": f"{k}/{v}",
+            "filename": filename,
+        }
 
     filename = os.path.join(preset_dir, k, "_" + v + ".json")
     if os.path.exists(filename):
-        return {"tag_or_key": f"Tag:{k}={v}", "filename": filename}
+        return {
+            "tag_or_key": f"Tag:{k}={v}",
+            "preset": f"{k}/{v}",
+            "filename": filename,
+        }
 
     filename = os.path.join(preset_dir, k + ".json")
     if os.path.exists(filename):
-        return {"tag_or_key": f"Key:{k}", "filename": filename}
+        return {
+            "tag_or_key": f"Key:{k}",
+            "preset": k,
+            "filename": filename,
+        }
 
 
 def get_presets_from_tags(osm):
+    if 'GB' in g.alpha2_codes:
+        ts_dir = app.config["ID_TAGGING_SCHEMA_DIR"]
+        filename = os.path.join(ts_dir, "dist", "translations", "en-GB.json")
+        translations = json.load(open(filename))["en-GB"]["presets"]["presets"]
+    else:
+        translations = {}
+
     found = []
-    ending = {
-        model.Point: "point",
-        model.Line: "line",
-        model.Polygon: "area"
-    }[type(osm)]
+    endings = {model.Point: "point", model.Line: "line", model.Polygon: "area"}
+    ending = endings[type(osm)]
+
     for k, v in osm.tags.items():
         if k == 'amenity' and v == 'clock' and osm.tags.get('display') == 'sundial':
             tag_or_key = f"Tag:{k}={v}"
@@ -942,7 +965,14 @@ def get_presets_from_tags(osm):
         if not match:
             continue
 
-        match["name"] = json.load(open(match.pop("filename")))["name"]
+        preset = match["preset"]
+        if preset in translations:
+            match["name"] = translations[preset]["name"]
+        else:
+            match["name"] = json.load(open(match["filename"]))["name"]
+
+        del match["filename"]
+
         found.append(match)
 
     return found
