@@ -196,7 +196,15 @@
                   <a
                     :href="'http://wiki.openstreetmap.org/wiki/' + p.tag_or_key"
                     class="osm-wiki-link"
-                    target="_blank">{{p.name}} <i class="fa fa-external-link"></i></a>
+                    target="_blank"
+                    @click.stop>{{p.name}} <i class="fa fa-external-link"></i></a>
+                </span>
+
+                <span v-if="osm.address">
+                    <br>street address: {{ osm.address }}
+                </span>
+                <span v-else-if="osm.tags['addr:street']">
+                    <br>street: {{ osm.tags['addr:street'] }}
                 </span>
 
                 <span v-if="osm.address_list.length">

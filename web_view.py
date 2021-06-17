@@ -1028,6 +1028,9 @@ def get_part_of(thing, bbox):
 
 def address_from_tags(tags):
     keys = ["street", "housenumber"]
+    if not all("addr:" + k in tags for k in keys):
+        return
+
     if g.street_number_first:
         keys.reverse()
     return " ".join(tags["addr:" + k] for k in keys)
@@ -1063,6 +1066,9 @@ def api_find_osm_candidates(item_id):
         }
         if hasattr(osm, 'area'):
             cur["area"] = osm.area
+
+        if address := address_from_tags(tags):
+            cur["address"] = address
 
         part_of = [i["name"] for i in get_part_of(osm, bounds) if i["name"] != name]
         if part_of:
