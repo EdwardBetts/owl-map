@@ -21,6 +21,7 @@
         startLat: {{ lat }},
         startLon: {{ lon }},
         startZoom: {{ zoom }},
+        username: {{ username | tojson }},
       };
 
       const app = createApp(App, props).mount('#app');

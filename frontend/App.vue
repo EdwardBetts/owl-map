@@ -1,5 +1,40 @@
 <template>
 <div>
+
+  <nav id="nav" class="navbar navbar-expand navbar-light bg-light">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">osm.wikidata.link</a>
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item">
+          <a class="nav-link active" aria-current="page" href="#">Home</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#">Link</a>
+        </li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Dropdown
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+            <li><a class="dropdown-item" href="#">Action</a></li>
+            <li><a class="dropdown-item" href="#">Another action</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#">Something else here</a></li>
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Disabled</a>
+        </li>
+      </ul>
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a v-if="username" class="nav-link" href="#">{{ username }}</a>
+          <a v-else class="nav-link" href="/login">Login</a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
   <div id="map">
   </div>
   <button ref="btn" id="load-btn" type="button" class="btn btn-primary btn-lg" @click="load_wikidata_items">
@@ -221,6 +256,7 @@ export default {
     startLat: Number,
     startLon: Number,
     startZoom: Number,
+    username: String,
   },
   data() {
     return {
@@ -717,26 +753,31 @@ export default {
 
 <style>
 
+#nav {
+  left: 35%;
+  width: 65%;
+}
+
 #map {
   position: absolute;
-  top: 0px;
+  top: 57px;
   bottom: 0px;
   left: 35%;
   width: 65%;
-  z-index: -1; 
+  z-index: -1;
 }
 
 #load-btn {
   position: absolute;
-  top: 20px;
-  left: 62.5%;
+  top: 77px;
+  left: 67.5%;
   transform: translate(-50%, 0);
 }
 
 #search {
   position: absolute;
   overflow: auto;
-  top: 20px;
+  top: 77px;
   left: 20px;
   bottom: 20px;
   width: 25%;
@@ -745,13 +786,6 @@ export default {
 
 .bg-highlight {
   background: lightgray !important;
-}
-
-#load-btn {
-  position: absolute;
-  top: 20px;
-  left: 62.5%;
-  transform: translate(-50%, 0);
 }
 
 #sidebar {
