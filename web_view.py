@@ -409,6 +409,24 @@ def get_bbox_centroid(bbox):
 
     return lat, lon
 
+@app.route("/api/1/count")
+def api_wikidata_items_count():
+    t0 = time()
+    bounds = request.args.get("bounds")
+
+    db_bbox = make_envelope(bounds)
+
+    q = (
+        model.Item.query.join(model.ItemLocation)
+        .filter(func.ST_Covers(db_bbox, model.ItemLocation.location))
+    )
+
+    t1 = time() - t0
+    response = jsonify(success=True, count=q.count(), duration=t1)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
+
+
 @app.route("/api/1/items")
 def api_wikidata_items():
     bounds = request.args.get("bounds")

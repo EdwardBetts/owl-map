@@ -531,6 +531,7 @@ export default {
       var lon = parseFloat(hit.lon).toFixed(5);
 
       this.map.setView([lat, lon], 16);
+      this.auto_load();
     },
 
     process_wikidata_items(load_items) {
@@ -625,6 +626,19 @@ export default {
         this.osm_loading = false;
 
         this.check_for_missing();
+        this.hits = [];
+      });
+    },
+    auto_load() {
+      var count_url = this.api_base_url + "/api/1/count";
+      var bounds = this.map.getBounds();
+      var params = { bounds: bounds.toBBoxString() };
+      axios.get(count_url, { params: params }).then((response) => {
+        var count = response.data.count;
+        if (count < 1000) {
+          this.load_wikidata_items();
+        }
+
       });
     },
     run_search() {
@@ -744,6 +758,8 @@ export default {
       this.detail_qid = this.qid_from_url();
       if (this.detail_qid) {
         this.load_wikidata_items();
+      } else {
+        this.auto_load();
       }
     });
 
