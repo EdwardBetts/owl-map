@@ -118,7 +118,7 @@
           <div class="list-group" @mouseout="this.hover_isa=undefined">
             <label class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" v-for="isa in isa_list" @mouseenter="this.hover_isa=isa">
               <span>
-              <input class="form-check-input me-1" type="checkbox" :id="'isa-' + isa.qid" :value="isa.qid" v-model="isa_ticked"> 
+              <input class="form-check-input me-1" type="checkbox" :id="'isa-' + isa.qid" :value="isa.qid" v-model="isa_ticked">
               {{ isa.label }} ({{ isa.qid }})
               <a href="#" @click.stop="isa_ticked=[isa.qid]">only</a>
               </span>
