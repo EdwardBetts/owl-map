@@ -37,6 +37,7 @@
 
   <div id="map">
   </div>
+
   <button ref="btn" id="load-btn" type="button" class="btn btn-primary btn-lg" @click="load_wikidata_items">
     <span v-if="!loading">
       Load Wikidata items
@@ -47,23 +48,135 @@
     </span>
   </button>
 
-	<div v-if="current_item && wd_item.image_list.length" class="modal fade" id="imageModal" tabindex="-1">
-		<div class="modal-dialog modal-dialog-centered modal-lg">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title">Image from Wikidata</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
+  <div id="edit-count" class="p-2" v-if="edits.length">
+    <span>edits: {{ edits.length }}</span>
+    <button class="btn btn-primary btn-sm ms-2" @click="close_item(); view_edits=true">
+      <i class="fa fa-upload"></i> save
+    </button>
+  </div>
+
+  <div v-if="current_item && wd_item.image_list.length" class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Image from Wikidata</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
           <img class="img-fluid" :src="api_base_url + '/commons/' + wd_item.image_list[0]">
-				</div>
-			</div>
-		</div>
-	</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div id="sidebar">
+    <div v-if="view_edits" class="p-2">
+      <div class="h3">
+        Upload to OpenStreetMap
+        <button type="button" class="btn-close float-end" @click="view_edits=false"></button>
+      </div>
 
-    <div v-if="!current_item">
+      <div class="card w-100 bg-light">
+        <div class="card-body">
+          <form>
+            <div class="mb-3">
+              <label for="changesetComment" class="form-label">Changeset comment</label>
+              <input type="text" class="form-control" id="changesetComment" :value="changeset_comment">
+            </div>
+            <button type="submit" class="btn btn-primary">Upload tags</button>
+          </form>
+        </div>
+      </div>
+
+      <div>
+        <div>
+          <div class="card my-2 w-100" v-for="edit in edits_grouped_by_qid">
+            <div class="card-body">
+              <h4 class="card-title">
+                <a :href="qid_url(edit.qid)" target="_blank">
+                  {{ edit.wikidata.label }}
+                </a> ({{ edit.qid }})
+              </h4>
+
+              <p class="card-text">
+
+              <span v-if="edit.wikidata.description">
+                <strong>description</strong><br/>
+                {{ edit.wikidata.description }}<br/>
+              </span>
+
+              <strong>item type</strong><br/>
+              <span
+                  v-bind:key="`isa-${edit.qid}-${isa_qid}`"
+                  v-for="isa_qid in edit.wikidata.isa_list">
+                <a :href="qid_url(isa_qid)" target="_blank">{{isa_labels[isa_qid]}}</a> ({{isa_qid}})
+                <br/>
+              </span>
+
+              <span v-if="edit.wikidata.street_address.length">
+                <strong>street address</strong><br/>
+                {{ edit.wikidata.street_address[0] }}<br/>
+              </span>
+
+              <strong>OSM matches</strong>
+
+              </p>
+
+              <table class="table table-sm table-hover">
+                <tbody>
+                  <tr v-for="osm in edit.osm" class="osm-candidate">
+                    <td class="text-end text-nowrap">
+                      {{ osm.distance.toFixed(0) }}m
+                      <a
+                        :href="'https://www.openstreetmap.org/' + osm.identifier"
+                        target="_blank"
+                        @click.stop><i class="fa fa-map-o"></i></a>
+                    </td>
+                    <td>
+                    {{ osm.name || "no name" }}
+                    <span v-for="(p, index) in osm.presets">
+                      <span v-if="index != 0">, </span>
+                      <a
+                        :href="'http://wiki.openstreetmap.org/wiki/' + p.tag_or_key"
+                        class="osm-wiki-link"
+                        target="_blank"
+                        @click.stop>{{p.name}} <i class="fa fa-external-link"></i></a>
+                    </span>
+
+                    <span v-if="osm.address">
+                        <br>street address: {{ osm.address }}
+                    </span>
+                    <span v-else-if="osm.tags['addr:street']">
+                        <br>street: {{ osm.tags['addr:street'] }}
+                    </span>
+
+                    <span v-if="osm.address_list.length">
+                        <br>address nodes: {{ osm.address_list.join("; ") }}
+                    </span>
+
+                    <span v-if="osm.part_of">
+                        <br>part of: {{ osm.part_of.join("; ") }}
+                    </span>
+
+                    <br>
+                      <span v-if="osm.selected">
+                        add tag: <span class="badge bg-success">wikidata={{ edit.qid }}</span>
+                      </span>
+                      <span v-else>
+                        remove tag: <span class="badge bg-danger">wikidata={{ edit.qid }}</span>
+                      </span>
+
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="!current_item && !view_edits">
 
       <div class="card m-2">
         <div class="card-body">
@@ -88,7 +201,8 @@
         </div>
       </div>
 
-      <div class="card m-2" v-if="isa_list.length">
+
+      <div class="card m-2" v-if="!view_edits && isa_list.length">
         <div class="card-body">
           <div class="h5 card-title">OSM/Wikidata link status</div>
           <div class="list-group">
@@ -110,7 +224,7 @@
         </div>
       </div>
 
-      <div class="card m-2" v-if="isa_list.length" id="isa-card">
+      <div class="card m-2" v-if="!view_edits && isa_list.length" id="isa-card">
         <div class="card-body">
           <div class="h5 card-title">item types</div>
           <div><a href="#" @click.prevent="isa_tick_all">show all</a></div>
@@ -155,14 +269,17 @@
             <br>{{wd_item.street_address[0]}}
           </span>
 
-          </div><div class="col">
+          </div>
+          <div class="col">
 
-          <span v-if="current_item.tag_or_key_list && current_item.tag_or_key_list.length">
-            <strong>OSM tags/keys to search for</strong>
-            <span v-for="v in current_item.tag_or_key_list">
-              <br>{{ v }}
-            </span>
-          </span>
+          <div v-if="current_item.tag_or_key_list && current_item.tag_or_key_list.length">
+            <strong>OSM tags/keys to search for</strong><br/>
+            {{ current_item.tag_or_key_list.length }} tags/keys to consider
+            <a href="#" @click="show_tag_or_key_list = !show_tag_or_key_list">show/hide</a><br/>
+            <div v-if="show_tag_or_key_list">
+              <div v-for="v in current_item.tag_or_key_list">{{ v }}</div>
+            </div>
+          </div>
 
           <span v-if="wd_item.image_list.length">
             <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal">
@@ -184,10 +301,18 @@
               <tr
                   v-for="osm in current_item.nearby"
                   class="osm-candidate"
-                  @mouseenter="this.current_osm=osm">
+                  :class="{ 'table-primary': osm.selected }"
+                  @mouseenter="this.current_osm=osm"
+                  @click="select_osm(current_item, osm)">
+                <td>
+                  <input class="form-check-input" type="checkbox" v-model="osm.selected"/>
+                </td>
                 <td class="text-end text-nowrap">
                   {{ osm.distance.toFixed(0) }}m
-                  <a :href="'https://www.openstreetmap.org/' + osm.identifier" target="_blank"><i class="fa fa-map-o"></i></a>
+                  <a
+                    :href="'https://www.openstreetmap.org/' + osm.identifier"
+                    target="_blank"
+                    @click.stop><i class="fa fa-map-o"></i></a>
                 </td>
                 <td>
                 {{ osm.name || "no name" }}
@@ -297,6 +422,10 @@ export default {
       selected_circles: [],
       hover_isa: undefined,
       detail_qid: undefined,
+      show_tag_or_key_list: undefined,
+      edits: [],
+      view_edits: false,
+      changeset_comment: "Add wikidata tag",
     };
   },
   computed: {
@@ -340,7 +469,29 @@ export default {
         }
       }
       return ret;
-    }
+    },
+    edits_grouped_by_qid() {
+      var qid_order = [];
+      var edit_lookup = {};
+
+      this.edits.forEach((edit) => {
+        var qid = edit.item.qid;
+
+        if (!edit_lookup[qid]) {
+          qid_order.push(qid);
+          console.log(edit.item);
+          edit_lookup[qid] = {
+            'qid': qid,
+            'wikidata': edit.item.wikidata,
+            'osm': [],
+          }
+        }
+
+        edit_lookup[qid].osm.push(edit.osm);
+      });
+
+      return qid_order.map((qid) => edit_lookup[qid]);
+    },
   },
   watch: {
     selected_items(new_items, old_items) {
@@ -404,6 +555,28 @@ export default {
     }
   },
   methods: {
+    edit_list_index(item, osm) {
+      var index = -1;
+      for (var i = 0; i < this.edits.length; i++) {
+        var edit = this.edits[i];
+        if (edit.item.qid == item.qid &&
+            edit.osm.identifier == osm.identifier) {
+          index = i;
+          break;
+        }
+      }
+      return index;
+    },
+    select_osm(item, osm) {
+      osm.selected = !osm.selected;
+      var index = this.edit_list_index(item, osm);
+
+      if (index == -1) {
+        this.edits.push({'item': item, 'osm': osm});
+      } else {
+        this.edits.splice(index, 1);
+      }
+    },
     qid_from_url() {
       const queryString = window.location.search;
       const urlParams = new URLSearchParams(queryString);
@@ -495,9 +668,11 @@ export default {
     },
     open_item(qid) {
       var item = this.items[qid];
+      this.view_edits = false;
       this.current_osm = undefined;
       this.current_item = item;
       this.update_map_path();
+      this.hover_isa = undefined;
 
       if (item.detail_requested !== undefined) return;
       item.detail_requested = true;
@@ -514,7 +689,20 @@ export default {
 
       axios.get(item_osm_candidates_url, { params: params }).then((response) => {
         var qid = response.data.qid;
-        this.items[qid].nearby = response.data.nearby;
+        var item = this.items[qid];
+        var osm_identifiers = []
+
+        if (item.osm) {
+          item.osm.forEach((osm) => { osm_identifiers.push(osm.identifier); });
+        }
+
+        item.nearby = response.data.nearby;
+        item.nearby.forEach((osm) => {
+          osm.selected = osm_identifiers.includes(osm.identifier);
+          if (this.edits.length && this.edit_list_index(item, osm) != -1) {
+            osm.selected = !osm.selected;
+          }
+        });
       });
     },
     close_item() {
@@ -545,7 +733,7 @@ export default {
     process_wikidata_items(load_items) {
       load_items.forEach(item => {
         var qid = item.qid;
-        this.items[qid] ||= {};
+        this.items[qid] ||= {'qid': qid};
         if (this.items[qid].wikidata) return;
         this.items[qid].wikidata = item;
         var group = this.items[qid].group ||= L.featureGroup();
@@ -607,12 +795,13 @@ export default {
         this.wikidata_loading = false;
 
         this.check_for_missing();
+        this.hits = [];
       });
 
       axios.get(osm_objects_url, { params: params }).then((response) => {
         response.data.objects.forEach((osm) => {
           var qid = osm.wikidata;
-          this.items[qid] ||= {};
+          this.items[qid] ||= {'qid': qid};
           this.items[qid].osm ||= [];
           this.items[qid].osm.push(osm);
           var group = this.items[qid].group ||= L.featureGroup();
@@ -796,6 +985,13 @@ export default {
   top: 77px;
   left: 67.5%;
   transform: translate(-50%, 0);
+}
+
+#edit-count {
+  position: absolute;
+  top: 77px;
+  right: 80px;
+  background: white;
 }
 
 #search {
