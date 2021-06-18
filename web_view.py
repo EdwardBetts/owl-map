@@ -1039,7 +1039,6 @@ def address_from_tags(tags):
         keys.reverse()
     return " ".join(tags["addr:" + k] for k in keys)
 
-
 @app.route("/api/1/item/Q<int:item_id>/candidates")
 def api_find_osm_candidates(item_id):
     bounds = request.args.get("bounds")
