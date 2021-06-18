@@ -75,7 +75,7 @@
               <button type="submit" id="search-btn" class="btn btn-primary">search</button>
             </div>
           </form>
-          <div class="list-group">
+          <div class="list-group" v-if="hits.length">
             <a class="list-group-item list-group-item-action"
                 :class="{ active: hit.identifier == this.active_hit }"
                 v-bind:key="hit.identifier"
