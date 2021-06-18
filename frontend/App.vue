@@ -143,10 +143,10 @@
                         @click.stop>{{p.name}} <i class="fa fa-external-link"></i></a>
                     </span>
 
-                    <span v-if="osm.address">
+                    <span v-if="osm.address && osm.address != osm.name">
                         <br>street address: {{ osm.address }}
                     </span>
-                    <span v-else-if="osm.tags['addr:street']">
+                    <span v-else-if="osm.tags['addr:street'] && osm.address != osm.name">
                         <br>street: {{ osm.tags['addr:street'] }}
                     </span>
 
@@ -325,10 +325,10 @@
                     @click.stop>{{p.name}} <i class="fa fa-external-link"></i></a>
                 </span>
 
-                <span v-if="osm.address">
+                <span v-if="osm.address && osm.address != osm.name">
                     <br>street address: {{ osm.address }}
                 </span>
-                <span v-else-if="osm.tags['addr:street']">
+                <span v-else-if="osm.tags['addr:street'] && osm.address != osm.name">
                     <br>street: {{ osm.tags['addr:street'] }}
                 </span>
 
