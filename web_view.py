@@ -968,14 +968,27 @@ def find_preset_file(k, v, ending):
             "filename": filename,
         }
 
+def get_preset_translations():
+    country_language = {
+        'AU': 'en-AU',  # Australia
+        'GB': 'en-GB',  # United Kingdom
+        'IE': 'en-GB',  # Ireland
+        'IN': 'en-IN',  # India
+        'NZ': 'en-NZ',  # New Zealand
+    }
+    ts_dir = app.config["ID_TAGGING_SCHEMA_DIR"]
+    translation_dir = os.path.join(ts_dir, "dist", "translations")
+
+    for code in g.alpha2_codes:
+        if code not in country_language:
+            continue
+        filename = os.path.join(translation_dir, country_language[code] + ".json")
+        return json.load(open(filename))["en-GB"]["presets"]["presets"]
+
+    return {}
 
 def get_presets_from_tags(osm):
-    if 'GB' in g.alpha2_codes:
-        ts_dir = app.config["ID_TAGGING_SCHEMA_DIR"]
-        filename = os.path.join(ts_dir, "dist", "translations", "en-GB.json")
-        translations = json.load(open(filename))["en-GB"]["presets"]["presets"]
-    else:
-        translations = {}
+    translations = get_preset_translations()
 
     found = []
     endings = {model.Point: "point", model.Line: "line", model.Polygon: "area"}
