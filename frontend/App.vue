@@ -365,7 +365,14 @@ var redMarker = ExtraMarkers.icon({
 
 var greenMarker = ExtraMarkers.icon({
   icon: "fa-wikidata",
-  markerColor: "green",
+  markerColor: "green-light",
+  shape: "circle",
+  prefix: "fa",
+});
+
+var greenDarkMarker = ExtraMarkers.icon({
+  icon: "fa-wikidata",
+  markerColor: "green-dark",
   shape: "circle",
   prefix: "fa",
 });
@@ -579,10 +586,26 @@ export default {
       var index = this.edit_list_index(item, osm);
 
       if (index == -1) {
-        this.edits.push({'item': item, 'osm': osm});
+        var mapStyle = { fillOpacity: 0, color: "darkturquoise" };
+        var geojson = L.geoJSON(null, { style: mapStyle });
+        geojson.addData(osm.geojson);
+        geojson.addTo(this.map);
+
+        this.edits.push({'item': item, 'osm': osm, 'outline': geojson});
+
       } else {
+        var edit = this.edits[index];
+        edit.outline.removeFrom(this.map);
         this.edits.splice(index, 1);
       }
+
+      var marker = this.getMarker(item);
+
+      item.wikidata.markers.forEach((marker_data) => {
+        marker_data.marker.setIcon(marker);
+      });
+
+
     },
     qid_from_url() {
       const queryString = window.location.search;
@@ -712,6 +735,10 @@ export default {
         });
       });
     },
+    item_has_edit(item) {
+      if (this.edits.length == 0) return false;
+      return this.edits.some((edit) => edit.item.qid == item.qid);
+    },
     close_item() {
       this.current_osm = undefined;
       this.current_item = undefined;
@@ -722,7 +749,11 @@ export default {
     },
     getMarker(item) {
       if (!this.osm_loaded) return blueMarker;
-      return item.osm ? greenMarker : redMarker;
+      if (this.item_has_edit(item)) {
+        return greenDarkMarker;
+      } else {
+        return item.osm ? greenMarker : redMarker;
+      }
     },
     hit_url(hit) {
       var lat = parseFloat(hit.lat).toFixed(5);
@@ -915,7 +946,8 @@ export default {
         if (!wd_item) continue;
 
         wd_item.markers.forEach((marker_data) => {
-          marker_data.marker.setIcon(greenMarker);
+          var marker = this.item_has_edit(item) ? greenDarkMarker : greenMarker;
+          marker_data.marker.setIcon(marker);
           item.lines ||= [];
           item.osm.forEach((osm) => {
             var path = [osm.centroid, marker_data];
@@ -930,7 +962,8 @@ export default {
         var item = this.items[qid];
         if (item.osm) continue;
         item.wikidata.markers.forEach((marker_data) => {
-          marker_data.marker.setIcon(redMarker);
+          var marker = this.item_has_edit(item) ? greenDarkMarker : redMarker;
+          marker_data.marker.setIcon(marker);
         });
       }
     }
