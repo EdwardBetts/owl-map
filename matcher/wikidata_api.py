@@ -1,5 +1,6 @@
 import requests
 import json
+import simplejson.errors
 
 wd_api_url = "https://www.wikidata.org/w/api.php"
 
@@ -54,7 +55,12 @@ def get_recent_changes(**kwargs):
 
 
 def get_entity(qid):
-    data = api_get({"action": "wbgetentities", "ids": qid}).json()
+    r = api_get({"action": "wbgetentities", "ids": qid})
+    try:
+        data = r.json()
+    except simplejson.errors.JSONDecodeError:
+        print(r.text)
+        raise
     if "entities" not in data:
         print(json.dumps(data, indent=2))
     return data["entities"][qid]
