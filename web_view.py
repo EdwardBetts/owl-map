@@ -876,7 +876,7 @@ def is_street_number_first(lat, lon):
 
     return bool(alpha2_number_first & alpha2)
 
-def get_nearby(bbox, item, max_distance=200):
+def get_nearby(bbox, item, max_distance=300):
     db_bbox = make_envelope(bbox)
 
     osm_objects = {}
@@ -914,7 +914,7 @@ def get_nearby(bbox, item, max_distance=200):
                              cls.tags["amenity"] != "atm",
                              cls.tags["amenity"] != "recycling")
 
-            q = q.limit(20)
+            q = q.limit(40)
 
             # print(q.statement.compile(compile_kwargs={"literal_binds": True}))
 
@@ -929,7 +929,7 @@ def get_nearby(bbox, item, max_distance=200):
               for identifier, dist
               in sorted(distances.items(), key=lambda i:i[1])]
 
-    return nearby[:10]
+    return nearby[:40]
 
 
 def find_preset_file(k, v, ending):
