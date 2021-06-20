@@ -384,6 +384,13 @@ var osmYellowMarker = ExtraMarkers.icon({
   prefix: "fa",
 });
 
+var osmOrangeMarker = ExtraMarkers.icon({
+  icon: "fa-map",
+  markerColor: "orange",
+  shape: "square",
+  prefix: "fa",
+});
+
 export default {
   props: {
     startLat: Number,
