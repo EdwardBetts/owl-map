@@ -296,7 +296,7 @@
 
         <div v-if="current_item.nearby && current_item.nearby.length">
           <strong>Possible OSM matches</strong><br>
-          <table class="table table-sm table-hover">
+          <table class="table table-sm table-hover" @mouseleave="this.current_osm = undefined">
             <tbody>
               <tr
                   v-for="osm in current_item.nearby"
