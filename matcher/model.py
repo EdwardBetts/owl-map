@@ -1,8 +1,8 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.schema import ForeignKey, Column
-from sqlalchemy.orm import relationship, column_property, deferred
+from sqlalchemy.orm import relationship, column_property, deferred, backref
 from sqlalchemy import func
-from sqlalchemy.types import Integer, String, Float, Boolean, DateTime, Text
+from sqlalchemy.types import Integer, String, Float, Boolean, DateTime, Text, BigInteger
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.expression import cast
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -19,6 +19,10 @@ Base = declarative_base()
 Base.query = session.query_property()
 
 re_point = re.compile(r'^POINT\((.+) (.+)\)$')
+
+osm_type_enum = postgresql.ENUM('node', 'way', 'relation',
+                                name='osm_type_enum',
+                                metadata=Base.metadata)
 
 class Item(Base):
     __tablename__ = "item"
@@ -295,3 +299,32 @@ class User(Base, UserMixin):
 
     def is_active(self):
         return self.active
+
+
+class Changeset(Base):
+    __tablename__ = 'changeset'
+    id = Column(BigInteger, primary_key=True)
+    created = Column(DateTime)
+    comment = Column(String)
+    user_id = Column(Integer, ForeignKey(User.id))
+    update_count = Column(Integer, nullable=False)
+
+    user = relationship('User',
+                        backref=backref('changesets',
+                                        lazy='dynamic',
+                                        order_by='Changeset.created.desc()'))
+
+
+class ChangesetEdit(Base):
+    __tablename__ = 'changeset_edit'
+
+    changeset_id = Column(BigInteger,
+                          ForeignKey('changeset.id'),
+                          primary_key=True)
+    item_id = Column(Integer, primary_key=True)
+    osm_id = Column(BigInteger, primary_key=True)
+    osm_type = Column(osm_type_enum, primary_key=True)
+    saved = Column(DateTime, default=now_utc(), nullable=False)
+
+    changeset = relationship('Changeset',
+                             backref=backref('edits', lazy='dynamic'))
