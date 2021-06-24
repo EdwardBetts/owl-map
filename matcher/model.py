@@ -153,7 +153,7 @@ class Item(Base):
 #     item_id = Column(Integer, primary_key=True)
 #     property_id = Column(Integer, primary_key=True)
 #     position = Column(Integer, primary_key=True)
-#     mainsnak = Column(postgresql.JSONBB)
+#     mainsnak = Column(postgresql.JSONB)
 
 class ItemIsA(Base):
     __tablename__ = 'item_isa'
