@@ -300,6 +300,17 @@ class User(Base, UserMixin):
     def is_active(self):
         return self.active
 
+class EditSession(Base):
+    __tablename__ = 'edit_session'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey(User.id))
+    created = Column(DateTime, default=now_utc(), nullable=False)
+    edit_list = Column(postgresql.JSONB)
+    comment = Column(String)
+
+    user = relationship('User')
+    changeset = relationship('Changeset', back_populates='edit_session', uselist=False)
+
 
 class Changeset(Base):
     __tablename__ = 'changeset'
@@ -308,11 +319,14 @@ class Changeset(Base):
     comment = Column(String)
     user_id = Column(Integer, ForeignKey(User.id))
     update_count = Column(Integer, nullable=False)
+    edit_session_id = Column(Integer, ForeignKey(EditSession.id))
 
     user = relationship('User',
                         backref=backref('changesets',
                                         lazy='dynamic',
                                         order_by='Changeset.created.desc()'))
+
+    edit_session = relationship('EditSession', back_populates='changeset')
 
 
 class ChangesetEdit(Base):
