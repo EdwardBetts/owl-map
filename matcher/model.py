@@ -7,7 +7,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.expression import cast
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.declarative import declared_attr
-from geoalchemy2 import Geography, Geometry
+from geoalchemy2 import Geometry
 from collections import defaultdict
 from flask_login import UserMixin
 from .database import session, now_utc
@@ -169,7 +169,7 @@ class ItemLocation(Base):
     item_id = Column(Integer, ForeignKey("item.item_id"), primary_key=True)
     property_id = Column(Integer, primary_key=True)
     statement_order = Column(Integer, primary_key=True)
-    location = Column(Geography("POINT", srid=4326, spatial_index=True), nullable=False)
+    location = Column(Geometry("POINT", srid=4326, spatial_index=True), nullable=False)
 
     qid = column_property("Q" + cast(item_id, String))
     pid = column_property("P" + cast(item_id, String))
