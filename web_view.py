@@ -432,6 +432,46 @@ def api_wikidata_items_count():
     return response
 
 
+@app.route("/api/1/isa")
+def api_wikidata_isa_counts():
+    t0 = time()
+
+    bbox = request.args.get("bounds")
+    bounds = [float(i) for i in bbox.split(",")]
+    db_bbox = make_envelope(bbox)
+
+    q = (
+        model.Item.query.join(model.ItemLocation)
+        .filter(func.ST_Covers(db_bbox, model.ItemLocation.location))
+    )
+
+    db_items = q.all()
+
+    counts = get_isa_count(db_items)
+    isa_ids = [qid[1:] for qid, count in counts]
+    isa_items = {
+        isa.qid: isa for isa in model.Item.query.filter(model.Item.item_id.in_(isa_ids))
+    }
+    isa_count = []
+    for qid, count in counts:
+        item = isa_items.get(qid)
+        if not item:
+            item = get_and_save_item(qid)
+
+        label = item.label() if item else "[missing]"
+        isa = {
+            "qid": qid,
+            "count": count,
+            "label": label,
+        }
+        isa_count.append(isa)
+
+    t1 = time() - t0
+    response = jsonify(success=True, isa_count=isa_count, bounds=bounds, duration=t1)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
+
+
 @app.route("/api/1/items")
 def api_wikidata_items():
     bounds = request.args.get("bounds")
