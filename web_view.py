@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 
 from flask import (Flask, render_template, request, jsonify, redirect, url_for, g,
-                   flash, session)
+                   flash, session, Response)
 from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
-from matcher import nominatim, model, database, commons, wikidata, wikidata_api, osm_oauth
+from matcher import (nominatim, model, database, commons, wikidata, wikidata_api,
+                     osm_oauth, edit, mail)
 from collections import Counter
-from time import time
+from time import time, sleep
 from geoalchemy2 import Geography
 from requests_oauthlib import OAuth1Session
 import flask_login
@@ -1280,6 +1281,130 @@ def oauth_callback():
 
     next_page = session.get('next') or url_for('index_page')
     return redirect(next_page)
+
+
+def validate_edit_list(edits):
+    for e in edits:
+        assert model.Item.get_by_qid(e["qid"])
+        assert e["op"] in {"add", "remove"}
+        osm_type, _, osm_id = e['osm'].partition('/')
+        osm_id = int(osm_id)
+        if osm_type == 'node':
+            assert model.Point.get(osm_id)
+        else:
+            src_id = osm_id if osm_type == "way" else -osm_id
+            assert (model.Line.query.get(src_id)
+                    or model.Polygon.query.get(src_id))
+
+
+@app.route("/api/1/edit", methods=["POST"])
+def api_new_edit_session():
+    user = flask_login.current_user
+    incoming = request.json
+
+    validate_edit_list(incoming["edit_list"])
+    es = model.EditSession(user=user,
+                           edit_list=incoming['edit_list'],
+                           comment=incoming['comment'])
+    database.session.add(es)
+    database.session.commit()
+
+    session_id = es.id
+
+    response = jsonify(success=True, session_id=session_id)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
+
+@app.route("/api/1/edit/<int:session_id>", methods=["POST"])
+def api_edit_session(session_id):
+    es = model.EditSession.query.get(session_id)
+    assert flask_login.current_user.id == es.user_id
+    incoming = request.json
+
+    for f in 'edit_list', 'comment':
+        if f not in incoming:
+            continue
+        setattr(es, f, incoming[f])
+    database.session.commit()
+
+    response = jsonify(success=True, session_id=session_id)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
+
+@app.route("/api/1/real_save/<int:session_id>")
+def api_save_changeset(session_id):
+    es = model.EditSession.query.get(session_id)
+
+    def send_message(event, **data):
+        data["type"] = event
+        return f"data: {json.dumps(data)}\n\n"
+
+    def stream():
+        changeset = edit.new_changeset(es.comment)
+        r = edit.create_changeset(changeset)
+        reply = r.text.strip()
+
+        if reply == "Couldn't authenticate you":
+            mail.open_changeset_error(session_id, changeset, r)
+            yield send_message("auth-fail", error=reply)
+            return
+
+        if not reply.isdigit():
+            mail.open_changeset_error(session_id, changeset, r)
+            yield send_message("changeset-error", error=reply)
+            return
+
+        changeset_id = int(reply)
+        yield send_message("open", id=changeset_id)
+
+        update_count = 0
+
+        edit.record_changeset(
+            id=changeset_id, comment=es.comment, update_count=update_count
+        )
+
+        for e in es.edit_list:
+            pass
+
+    return Response(stream(), mimetype='text/event-stream')
+
+@app.route("/api/1/save/<int:session_id>")
+def mock_api_save_changeset(session_id):
+    es = model.EditSession.query.get(session_id)
+
+    def send(event, **data):
+        data["type"] = event
+        return f"data: {json.dumps(data)}\n\n"
+
+    def stream(user):
+        print('stream')
+        changeset_id = database.session.query(func.max(model.Changeset.id) + 1).scalar()
+        sleep(1)
+        yield send("open", id=changeset_id)
+        sleep(1)
+
+        update_count = 0
+
+        print('record_changeset', changeset_id)
+        edit.record_changeset(
+            id=changeset_id, user=user, comment=es.comment, update_count=update_count
+        )
+
+        print('edits')
+
+        for num, e in enumerate(es.edit_list):
+            print(num, e)
+            yield send("progress", edit=e, num=num)
+            sleep(1)
+            yield send("saved", edit=e, num=num)
+            sleep(1)
+
+        print('closing')
+        yield send("closing")
+        sleep(1)
+        yield send("done")
+
+    return Response(stream(g.user), mimetype='text/event-stream')
 
 
 if __name__ == "__main__":

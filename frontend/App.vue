@@ -48,7 +48,7 @@
     </span>
   </button>
 
-  <div id="edit-count" class="p-2" v-if="edits.length">
+  <div id="edit-count" class="p-2" v-if="upload_state === undefined && edits.length">
     <span>edits: {{ edits.length }}</span>
     <button class="btn btn-primary btn-sm ms-2" @click="close_item(); view_edits=true">
       <i class="fa fa-upload"></i> save
@@ -73,19 +73,66 @@
     <div v-if="view_edits" class="p-2">
       <div class="h3">
         Upload to OpenStreetMap
-        <button type="button" class="btn-close float-end" @click="view_edits=false"></button>
+        <button :disabled="upload_state !== undefined && upload_state != 'done'"
+           type="button"
+           class="btn-close float-end"
+           @click="close_edit_list"></button>
       </div>
 
-      <div class="card w-100 bg-light">
+      <div class="card w-100 bg-light mb-2">
         <div class="card-body">
-          <form>
+          <p class="card-text">{{ edits.length }} edits to upload</p>
+          <form @submit.prevent="upload">
             <div class="mb-3">
               <label for="changesetComment" class="form-label">Changeset comment</label>
-              <input type="text" class="form-control" id="changesetComment" :value="changeset_comment">
+              <input
+                :disabled="upload_state !== undefined"
+                type="text"
+                class="form-control"
+                id="changesetComment"
+                v-model="changeset_comment">
             </div>
-            <button type="submit" class="btn btn-primary">Upload tags</button>
+            <button
+              :disabled="changeset_comment && upload_state !== undefined"
+              type="submit"
+              class="btn btn-primary">
+              <i class="fa fa-upload"></i> Save to OpenStreetMap
+            </button>
           </form>
+
+          <div class="progress mt-2">
+            <div :style="{ width: upload_progress + '%' }"
+                 class="progress-bar"
+                 role="progressbar"></div>
+          </div>
+
+
         </div>
+      </div>
+
+      <div v-if="upload_state == 'auth-fail'" class="alert alert-danger" role="alert">
+        <p>The OpenStreetMap returned an error: "Couldn't authenticate you".</p>
+        <p>To workaround this error you need to logout and login again.</p>
+      </div>
+
+      <div v-if="upload_state == 'init'" class="alert alert-info" role="alert">
+        Starting upload.
+      </div>
+
+      <div v-if="upload_state == 'uploading'" class="alert alert-info" role="alert">
+        Uploading changes.
+      </div>
+
+      <div v-if="upload_state == 'closing'" class="alert alert-info" role="alert">
+        Closing changeset.
+      </div>
+
+      <div v-if="upload_state == 'done'" class="alert alert-success" role="alert">
+        Changes saved.
+        <a :href="`https://www.openstreetmap.org/changeset/${changeset_id}`"
+          target="_blank">
+          view your changeset
+        </a>
       </div>
 
       <div>
@@ -165,6 +212,11 @@
                       <span v-else>
                         remove tag: <span class="badge bg-danger">wikidata={{ edit.qid }}</span>
                       </span>
+
+                      <span v-if="osm.upload_state == 'current'"
+                            class="ms-2 badge bg-info">uploading</span>
+                      <span v-if="osm.upload_state == 'saved'"
+                            class="ms-2 badge bg-success">saved</span>
 
                     </td>
                   </tr>
@@ -440,6 +492,9 @@ export default {
       edits: [],
       view_edits: false,
       changeset_comment: "Add wikidata tag",
+      changeset_id: undefined,
+      upload_state: undefined,
+      upload_progress: 0,
     };
   },
   computed: {
@@ -472,6 +527,7 @@ export default {
     selected_items() {
       var ret = {};
       for (const qid in this.items) {
+        if (this.items[qid] === undefined) continue;
         var item = this.items[qid];
         if (!item.wikidata) continue;
 
@@ -569,6 +625,82 @@ export default {
     }
   },
   methods: {
+    close_edit_list() {
+      this.view_edits = false;
+      if (this.upload_state == 'done') {
+        this.edits = [];
+        this.upload_progress = 0;
+        this.upload_state = undefined;
+      }
+    },
+    upload() {
+      console.log('upload triggered');
+      this.upload_state = "init";
+      var edit_list = [];
+      this.edits.forEach((edit) => {
+        var e = {
+          'qid': edit.item.qid,
+          'osm': edit.osm.identifier,
+          'op': (edit.osm.selected ? 'add' : 'remove'),
+        };
+        edit_list.push(e);
+      });
+      var post_json = {
+        'comment': this.changeset_comment,
+        'edit_list': edit_list,
+      }
+      console.log('post new session');
+      var edit_session_url = `${this.api_base_url}/api/1/edit`;
+      axios.post(edit_session_url, post_json).then((response) => {
+        var session_id = response.data.session_id;
+        var save_url = `${this.api_base_url}/api/1/save/${session_id}`;
+        console.log('new event source');
+        const es = new EventSource(save_url);
+        es.onerror = function(event) {
+          console.log('event source:', es);
+          console.log('ready state:', es.readyState);
+        }
+        var app = this;
+        es.onmessage = function(event) {
+          const data = JSON.parse(event.data);
+          switch(data.type) {
+            case "auth-fail":
+              app.upload_state = "auth-fail";
+              console.log("auth-fail");
+              es.close();
+              break;
+            case "changeset-error":
+              app.upload_state = "changeset-error";
+              app.upload_error = data.error;
+              console.log("changeset-error", data.error);
+              es.close();
+              break;
+            case "open":
+              app.upload_state = "uploading";
+              app.changeset_id = data.id;
+              break;
+            case "progress":
+              var edit = app.edits[data.num];
+              app.upload_progress = ((edit.num + 1) * 100) / app.edits.length;
+              console.log(app.upload_progress);
+              edit.osm.upload_state = "progress";
+              break;
+            case "saved":
+              var edit = app.edits[data.num];
+              edit.osm.upload_state = "saved";
+              break;
+            case "closing":
+              app.upload_state = "closing";
+              break;
+            case "done":
+              app.upload_state = "done";
+              es.close();
+              break;
+          }
+          console.log('upload state:', app.upload_state);
+        }
+      });
+    },
     edit_list_index(item, osm) {
       var index = -1;
       for (var i = 0; i < this.edits.length; i++) {
