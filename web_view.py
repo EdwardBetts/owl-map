@@ -211,7 +211,7 @@ def get_markers(all_items):
 
 
 def get_user_location():
-    gi = GeoIP.open("/home/edward/lib/data/GeoIPCity.dat", GeoIP.GEOIP_STANDARD)
+    gi = GeoIP.open(app.config["GEOIP_DATA"], GeoIP.GEOIP_STANDARD)
 
     remote_ip = request.remote_addr
     gir = gi.record_by_addr(remote_ip)
