@@ -129,12 +129,7 @@ def get_osm_with_wikidata_tag(bbox):
             if osm.identifier in seen:
                 continue
             seen.add(osm.identifier)
-            name = osm.name
-            if not name:
-                if "addr:housename" in osm.tags:
-                    name = osm.tags["addr:housename"]
-                else:
-                    name = "[no label]"
+            name = osm.name or osm.tags.get("addr:housename") or "[no label]"
 
             tagged.append(
                 {
