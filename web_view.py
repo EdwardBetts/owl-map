@@ -209,16 +209,16 @@ def get_markers(all_items):
 
     return items
 
-
-def get_user_location():
+def geoip_user_record():
     gi = GeoIP.open(app.config["GEOIP_DATA"], GeoIP.GEOIP_STANDARD)
 
     remote_ip = request.remote_addr
-    gir = gi.record_by_addr(remote_ip)
-    if not gir:
-        return
-    lat, lon = gir["latitude"], gir["longitude"]
-    return (lat, lon)
+    return gi.record_by_addr(remote_ip)
+
+
+def get_user_location():
+    gir = geoip_user_record()
+    return (gir["latitude"], gir["longitude"]) if gir else None
 
 
 @app.route("/")
@@ -413,6 +413,11 @@ def get_bbox_centroid(bbox):
     lon, lat = re_point.match(centroid).groups()
 
     return lat, lon
+
+@app.route("/api/1/location")
+def show_user_location():
+    return cors_jsonify(get_user_location())
+
 
 @app.route("/api/1/count")
 def api_wikidata_items_count():
