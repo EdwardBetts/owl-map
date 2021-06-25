@@ -165,7 +165,7 @@ def get_items(item_ids):
 
 
 def get_item_tags(item):
-    skip_tags = {"Key:addr:street"}
+    skip_tags = {"Key:addr:street", "Key:lit"}
 
     isa_items = []
     isa_list = [v["numeric-id"] for v in item.get_claim("P31")]
