@@ -686,141 +686,6 @@ extra_keys = {
                   'Tag:office=ngo'],            # nonprofit corporation
 }
 
-skip_isa = {
-    13226383,
-    16686448,
-    2221906,
-    2133296,  # space (architecture)
-    56052926,  # building division
-    15989253,  # part
-    9350592,  # telecommunications infrastructure
-    121359,  # infrastructure
-    28877,  # goods
-    2897903,  # goods and services
-    2995644,  # result
-    733541,  # consequence
-    408386,  # inference
-    3249551,  # process
-    20937557,  # series
-    16887380,  # group
-    28813620,  # set
-    99527517,  # collection entity
-    1150070,  # change
-    1190554,  # occurrence
-    26907166,  # temporal entity
-    2425052,  # electrical appliance
-    931447,  # electrical load
-    210729,  # electrical element
-    3749263,  # electrical device
-    16798631,  # equipment
-    66310125,  # nonbiological component
-    22811462,  # type of manufactured good
-    21146257,  # type
-    16889133,  # class
-    1310239,  # component
-    337060,  # perceptible object
-    581105,  # consumer electronics
-    2858615,  # electronic machine
-    1183543,  # device
-    39546,  # tool
-    35825432,  # converter
-    11019,  # machine
-    8205328,  # artificial physical object
-    223557,  # physical object
-    35459920,  # three-dimensional object
-    488383,  # object
-    35120,  # entity
-    1454986,  # physical system
-    30060700,  # scientific object
-    58778,  # system
-    6671777,  # structure
-    4406616,  # concrete object
-    2555640,  # cell (architecture)
-    78642244,  # closed space
-    1902617,  # verblijfsruimte
-    180516,  # room ['Key:room']
-    17334923,  # location
-    27096213,  # geographic entity
-    58416391,  # spatial entity
-    58415929,  # spatio-temporal entity
-    811979,  # architectural structure
-    811430,  # human-made geographic feature
-    35145743,  # human-made landform
-    27096235,  # artificial geographic entity
-    618123,  # geographical feature
-    386724,  # work
-    15401930,  # product
-    102074988,  # artificial physical structure
-    15710813,  # physical structure
-    1299240,  # interior space
-    4830453,  # business
-    3563237,  # economic unit
-    2198779,  # unit
-    7184903,  # abstract object
-    16334295,  # group of humans
-    16334298,  # group of living things
-    61961344,  # group of physical objects
-    98119401,  # group or class of physical objects
-    106559804,  # person or organization
-    24229398,  # agent
-    23958946,  # individual entity
-    4830453,  # business
-    2695280,  # technique
-    21162272,  # means
-    4026292,  # action
-    1914636,  # activity
-    372222,  # human-readable medium
-    494756,  # data
-    42848,  # data
-    1166770,  # depiction
-    11024,  # communication
-    6031064,  # information exchange
-    52948,  # interaction
-    23009552,  # exchange
-    23009675,  # transfer
-    22294683,  # biological process involved in intraspecies interaction between organisms
-    628858,  # workplace
-    1228250,  # line
-    211548,  # locus
-    36161,  # set
-    864377,  # multiset
-    246672,  # mathematical object
-    5469988,  # formalization
-    4393498,  # representation
-    930933,  # relation
-    217594,  # class
-    294440,  # public space
-    7551384,  # social space
-    83493482,  # thanking
-    83492918,  # acknowledgement
-    628523,  # message
-    11028,  # information
-    189970,  # social status
-    11424100,  # status
-    4897819,  # role
-    1207505,  # quality
-    937228,  # property
-    11862829,  # academic discipline
-    1047113,  # specialty
-    9081,  # knowledge
-    104127086,  # memory
-    12488383,  # content
-    2434238,  # heritage
-    23893363,  # heritage
-    82821,  # tradition
-    251777,  # custom
-    1299714,  # habit
-    36529775,  # habit
-    7302601,  # recognition
-    854429,  # portal
-    391414,  # architectural element
-    3955017,  # intermediate good
-    2424752,  # product
-    19603939,  # building component
-    55638,  # tertiary sector of the economy
-    3958441,  # economic sector
-    7406919,  # service
-}
 skip_tags = {"Key:addr:street"}
 
 def get_item(item_id):
@@ -851,6 +716,9 @@ def get_item_tags(item):
     isa_items = get_items(isa_list)
 
     osm_list = set()
+
+    skip_isa = {row[0] for row in database.session.query(model.SkipIsA.item_id)}
+
     seen = set(isa_list) | skip_isa
     while isa_items:
         isa = isa_items.pop()
