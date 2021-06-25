@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="container my-2">
+
+  <h1>Skip <em>instance of</em> list</h1>
+
+  <ul>
+  {% for item in q %}
+    <li><a href="{{ item.wd_url }}">{{ item.label() }}</a> ({{ item.qid }})
+  {% endfor %}
+  </ul>
+
+</div>
+{% endblock %}

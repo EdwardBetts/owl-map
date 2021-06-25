@@ -41,6 +41,11 @@ class Item(Base):
         if qid and len(qid) > 1 and qid[0].upper() == "Q" and qid[1:].isdigit():
             return cls.query.get(qid[1:])
 
+    @property
+    def wd_url(self):
+        return f"https://www.wikidata.org/wiki/{self.qid}"
+
+
     def get_claim(self, pid):
         return [i["mainsnak"]["datavalue"]["value"] if "datavalue" in i["mainsnak"] else None
                 for i in self.claims.get(pid, [])]
@@ -342,3 +347,9 @@ class ChangesetEdit(Base):
 
     changeset = relationship('Changeset',
                              backref=backref('edits', lazy='dynamic'))
+
+class SkipIsA(Base):
+    __tablename__ = 'skip_isa'
+    item_id = Column(Integer, ForeignKey('item.item_id'), primary_key=True)
+
+    item = relationship('Item')

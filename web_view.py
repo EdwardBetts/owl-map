@@ -230,6 +230,11 @@ def redirect_from_root():
 def index_page():
     return render_template("index.html")
 
+@app.route("/admin/skip_isa")
+def admin_skip_isa_list():
+    q = model.Item.query.join(model.SkipIsA).order_by(model.Item.item_id)
+    return render_template("admin/skip_isa.html", q=q)
+
 
 @app.route("/identifier")
 def identifier_index():
