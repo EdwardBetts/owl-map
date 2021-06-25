@@ -80,6 +80,11 @@ def shutdown_session(exception=None):
 def global_user():
     g.user = flask_login.current_user._get_current_object()
 
+def cors_jsonify(*args, **kwargs):
+    response = jsonify(*args, **kwargs)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
+
 def check_for_tagged_qids(qids):
     tagged = set()
     for qid in qids:
@@ -427,9 +432,7 @@ def api_wikidata_items_count():
     )
 
     t1 = time() - t0
-    response = jsonify(success=True, count=q.count(), duration=t1)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return response
+    return cors_jsonify(success=True, count=q.count(), duration=t1)
 
 
 @app.route("/api/1/isa")
@@ -467,9 +470,7 @@ def api_wikidata_isa_counts():
         isa_count.append(isa)
 
     t1 = time() - t0
-    response = jsonify(success=True, isa_count=isa_count, bounds=bounds, duration=t1)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return response
+    return cors_jsonify(success=True, isa_count=isa_count, bounds=bounds, duration=t1)
 
 
 @app.route("/api/1/items")
@@ -504,9 +505,7 @@ def api_wikidata_items():
     t1 = time() - t0
     print(f"wikidata: {t1} seconds")
 
-    response = jsonify(success=True, items=items, isa_count=isa_count, duration=t1)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return response
+    return cors_jsonify(success=True, items=items, isa_count=isa_count, duration=t1)
 
 
 @app.route("/api/1/osm")
@@ -516,9 +515,7 @@ def api_osm_objects():
     objects = get_osm_with_wikidata_tag(bounds)
     t1 = time() - t0
     print(f"OSM: {t1} seconds")
-    response = jsonify(success=True, objects=objects, duration=t1)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return response
+    return cors_jsonify(success=True, objects=objects, duration=t1)
 
 
 edu = ['Tag:amenity=college', 'Tag:amenity=university', 'Tag:amenity=school',
@@ -879,9 +876,10 @@ def api_get_item_tags(item_id):
     osm_list = get_item_tags(item)
     t1 = time() - t0
 
-    response = jsonify(success=True, qid=item.qid, tag_or_key_list=osm_list, duration=t1)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return response
+    return cors_jsonify(success=True,
+                        qid=item.qid,
+                        tag_or_key_list=osm_list,
+                        duration=t1)
 
 def get_tag_filter(cls, tag_list):
     tag_filter = []
@@ -1135,19 +1133,17 @@ def api_find_osm_candidates(item_id):
         nearby.append(cur)
 
     t1 = time() - t0
-    response = jsonify(success=True, qid=item.qid, nearby=nearby, duration=t1)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return response
+    return cors_jsonify(success=True, qid=item.qid, nearby=nearby, duration=t1)
 
 
 @app.route("/api/1/missing")
 def api_missing_wikidata_items():
     qids_arg = request.args.get("qids")
     if not qids_arg:
-        return jsonify(success=False,
-                       error="required parameter 'qids' is missing",
-                       items=[],
-                       isa_count=[])
+        return cors_jsonify(success=False,
+                           error="required parameter 'qids' is missing",
+                           items=[],
+                           isa_count=[])
 
     qids = []
     for qid in qids_arg.upper().split(","):
@@ -1189,9 +1185,7 @@ def api_missing_wikidata_items():
         }
         isa_count.append(isa)
 
-    response = jsonify(success=True, items=items, isa_count=isa_count)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return response
+    return cors_jsonify(success=True, items=items, isa_count=isa_count)
 
 
 @app.route("/api/1/search")
@@ -1204,9 +1198,7 @@ def api_search():
         hit["name"] = nominatim.get_hit_name(hit)
         hit["identifier"] = f"{hit['osm_type']}/{hit['osm_id']}"
 
-    response = jsonify(hits=hits)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return response
+    return cors_jsonify(success=True, hits=hits)
 
 @app.route("/refresh/Q<int:item_id>")
 def refresh_item(item_id):
@@ -1351,9 +1343,7 @@ def api_new_edit_session():
 
     session_id = es.id
 
-    response = jsonify(success=True, session_id=session_id)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return response
+    return cors_jsonify(success=True, session_id=session_id)
 
 @app.route("/api/1/edit/<int:session_id>", methods=["POST"])
 def api_edit_session(session_id):
@@ -1367,9 +1357,7 @@ def api_edit_session(session_id):
         setattr(es, f, incoming[f])
     database.session.commit()
 
-    response = jsonify(success=True, session_id=session_id)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return response
+    return cors_jsonify(success=True, session_id=session_id)
 
 @app.route("/api/1/real_save/<int:session_id>")
 def api_save_changeset(session_id):
