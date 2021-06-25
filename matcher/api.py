@@ -1,4 +1,4 @@
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_
 from sqlalchemy.orm import selectinload
 from matcher import model, database, wikidata_api, wikidata
 from matcher.data import extra_keys
@@ -237,7 +237,8 @@ def get_tag_filter(cls, tag_list):
     tag_filter = []
     for tag_or_key in tag_list:
         if tag_or_key.startswith("Key:"):
-            tag_filter.append(cls.tags.has_key(tag_or_key[4:]))
+            tag_filter.append(and_(cls.tags.has_key(tag_or_key[4:]),
+                                   cls.tags[tag_or_key[4:]] != 'no'))
         if tag_or_key.startswith("Tag:"):
             k, _, v = tag_or_key.partition("=")
             tag_filter.append(cls.tags[k[4:]] == v)
