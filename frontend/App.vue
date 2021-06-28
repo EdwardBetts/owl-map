@@ -524,10 +524,13 @@ export default {
       }
       return count;
     },
+    item_is_selceted(item) {
+      return item.wikidata.isa_list.some(isa => this.isa_ticked.includes(isa));
+    },
     selected_items() {
       var ret = {};
       for (const qid in this.items) {
-        if (this.items[qid] === undefined) continue;
+        if (!this.items[qid]) continue;
         var item = this.items[qid];
         if (!item.wikidata) continue;
 
@@ -567,12 +570,12 @@ export default {
     selected_items(new_items, old_items) {
       for (const qid of Object.keys(new_items)) {
         if (!old_items[qid])
-          this.items[qid].group.addTo(this.map);
+          new_items[qid].group.addTo(this.map);
       }
 
       for (const qid of Object.keys(old_items)) {
         if (!new_items[qid])
-          this.items[qid].group.removeFrom(this.map);
+          old_items[qid].group.removeFrom(this.map);
       }
     },
     current_osm(osm) {
@@ -825,6 +828,10 @@ export default {
       }
       this.drop_hover_circles();
     },
+    map_moved() {
+      this.auto_load();
+      this.update_map_path();
+    },
     update_map_path() {
       history.replaceState(null, null, this.build_map_path());
     },
@@ -921,17 +928,20 @@ export default {
 
     },
 
-    clear_items() {
+    clear_isa() {
+      this.isa_list = [];
+      // this.isa_ticked = [];
+      this.isa_labels = {};
+      this.isa_lookup = {};
+    },
 
+    clear_items() {
       for (const qid of Object.keys(this.items)) {
         this.items[qid].group.removeFrom(this.map);
       }
 
       this.items = {};
-      this.isa_list = [];
-      this.isa_ticked = [];
-      this.isa_labels = {};
-      this.isa_lookup = {};
+      clear_isa();
     },
 
     load_wikidata_items() {
@@ -940,11 +950,9 @@ export default {
       this.osm_loaded = false;
       this.check_for_missing_done = false;
 
-      this.clear_items();
-      this.close_item();
-
       this.wikidata_loading = true;
       this.osm_loading = true;
+
 
       var bounds = this.map.getBounds();
 
@@ -954,6 +962,7 @@ export default {
       var params = { bounds: bounds.toBBoxString() };
 
       axios.get(items_url, { params: params }).then((response) => {
+        this.clear_isa();
         this.isa_list = response.data.isa_count;
         this.isa_list.forEach(isa => {
           this.isa_ticked.push(isa.qid);
@@ -972,7 +981,8 @@ export default {
         response.data.objects.forEach((osm) => {
           var qid = osm.wikidata;
           this.items[qid] ||= {'qid': qid};
-          this.items[qid].osm ||= [];
+          if (this.items[qid].osm) return;
+          this.items[qid].osm = [];
           this.items[qid].osm.push(osm);
           var group = this.items[qid].group ||= L.featureGroup();
           var icon = osmYellowMarker;
@@ -1121,7 +1131,7 @@ export default {
       });
       osm.addTo(map);
 
-      map.on("moveend", this.update_map_path);
+      map.on("moveend", this.map_moved);
       this.map = map;
 
       this.detail_qid = this.qid_from_url();
