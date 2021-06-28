@@ -266,7 +266,7 @@ def get_nearby(bbox, item, max_distance=300):
                 continue
 
             tag_filter = get_tag_filter(cls, tag_list)
-            dist = func.ST_Distance(point, cls.way)
+            dist = func.ST_DistanceSphere(point, cls.way)
 
             q = (cls.query.add_columns(dist.label('distance'))
                           .filter(
