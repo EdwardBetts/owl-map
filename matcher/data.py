@@ -164,6 +164,7 @@ extra_keys = {
                'Tag:building=office'],          # organization
     'Q17084016': ['Tag:office=association',
                   'Tag:office=ngo'],            # nonprofit corporation
+    'Q83620': ['Key:highway'],                  # thoroughfare
 }
 
 property_map = [
