@@ -45,7 +45,7 @@ def make_envelope(bounds):
 def get_bbox_centroid(bbox):
     bbox = make_envelope(bbox)
     centroid = database.session.query(func.ST_AsText(func.ST_Centroid(bbox))).scalar()
-    return re_point.match(centroid).groups()
+    return reversed(re_point.match(centroid).groups())
 
 
 def get_part_of(thing, bbox):
