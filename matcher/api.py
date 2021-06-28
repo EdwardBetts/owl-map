@@ -174,6 +174,8 @@ def get_item_tags(item):
     osm_list = set()
 
     skip_isa = {row[0] for row in database.session.query(model.SkipIsA.item_id)}
+    if item.is_tram_stop():
+        skip_isa.add(41176)  # building (Q41176)
 
     seen = set(isa_list) | skip_isa
     while isa_items:

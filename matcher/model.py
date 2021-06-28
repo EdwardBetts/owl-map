@@ -45,7 +45,6 @@ class Item(Base):
     def wd_url(self):
         return f"https://www.wikidata.org/wiki/{self.qid}"
 
-
     def get_claim(self, pid):
         return [i["mainsnak"]["datavalue"]["value"] if "datavalue" in i["mainsnak"] else None
                 for i in self.claims.get(pid, [])]
@@ -145,13 +144,18 @@ class Item(Base):
 
         return dict(d) or None
 
+    def get_isa_qids(self):
+        return {v["id"] for v in self.get_claim("P31") if v}
+
     def is_street(self):
         street_items = {
             'Q79007',  # street
             'Q21000333',  # shopping street
         }
-        return any(v and v["id"] in street_items for v in self.get_claim("P31"))
+        return bool(street_items & self.get_isa_qids())
 
+    def is_tram_stop(self):
+        return 'Q2175765' in self.get_isa_qids()
 
 # class Claim(Base):
 #     __tablename__ = "claim"
