@@ -165,6 +165,9 @@ extra_keys = {
     'Q17084016': ['Tag:office=association',
                   'Tag:office=ngo'],            # nonprofit corporation
     'Q83620': ['Key:highway'],                  # thoroughfare
+    'Q33506': ['Key:building'],                 # museum
+    'Q4287745': ['Tag:amenity=hospital',        # medical organization
+                 'Tag:healthcare=hospital'],
 }
 
 property_map = [
