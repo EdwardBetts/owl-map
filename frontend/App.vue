@@ -321,6 +321,11 @@
             <br>{{wd_item.street_address[0]}}
           </span>
 
+          <span v-if="wd_item.closed.length">
+            <br><strong>closed</strong>
+            <br>{{wd_item.closed.join('; ')}}
+          </span>
+
           </div>
           <div class="col">
 

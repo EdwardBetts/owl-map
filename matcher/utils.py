@@ -6,6 +6,7 @@ import math
 import user_agents
 import re
 import pattern.en
+from datetime import date
 
 metres_per_mile = 1609.344
 feet_per_metre = 3.28084
@@ -168,3 +169,17 @@ def pluralize_label(label):
         return "mines"
 
     return pattern.en.pluralize(text)
+
+
+def format_wikibase_time(v):
+    p = v["precision"]
+    t = v["time"]
+
+    assert p in (9, 10, 11)
+
+    if p == 11:
+        return date.fromisoformat(t[1:11]).strftime("%d %B %Y")
+    if p == 10:
+        return date.fromisoformat(t[1:8] + "-01").strftime("%B %Y")
+    if p == 9:
+        return t[1:5]

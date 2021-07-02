@@ -145,17 +145,20 @@ class Item(Base):
         return dict(d) or None
 
     def get_isa_qids(self):
-        return {v["id"] for v in self.get_claim("P31") if v}
+        return [v["id"] for v in self.get_claim("P31") if v]
 
     def is_street(self):
         street_items = {
             'Q79007',  # street
             'Q21000333',  # shopping street
         }
-        return bool(street_items & self.get_isa_qids())
+        return bool(street_items & set(self.get_isa_qids()))
 
     def is_tram_stop(self):
         return 'Q2175765' in self.get_isa_qids()
+
+    def closed(self):
+        return [utils.format_wikibase_time(v) for v in self.get_claim("P3999") if v]
 
 # class Claim(Base):
 #     __tablename__ = "claim"
