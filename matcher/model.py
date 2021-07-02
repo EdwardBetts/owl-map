@@ -232,6 +232,20 @@ class MapMixin:
     def as_EWKT(cls):
         return column_property(func.ST_AsEWKT(cls.way), deferred=True)
 
+    @hybrid_property
+    def has_street_address(self):
+        return ("addr:housenumber" in self.tags
+                and "addr:street" in self.tags)
+
+    def display_name(self):
+        for key in 'bridge:name', 'tunnel:name', 'lock_name':
+            if key in self.tags:
+                return self.tags[key]
+
+        return (self.name
+                or self.tags.get("addr:housename")
+                or self.tags.get("inscription"))
+
     def geojson(self):
         return json.loads(self.geojson_str)
 

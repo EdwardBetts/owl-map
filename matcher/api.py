@@ -421,8 +421,8 @@ def find_osm_candidates(item, bounds):
     for osm, dist in get_nearby(bounds, item):
         tags = osm.tags
         tags.pop("way_area", None)
-        name = osm.name or tags.get("addr:housename") or tags.get("inscription")
-        if not name and "addr:housenumber" in tags and "addr:street" in tags:
+        name = osm.display_name()
+        if not name and osm.has_street_address:
             name = address_from_tags(tags)
 
         if isinstance(osm, model.Polygon) and "building" in osm.tags:
