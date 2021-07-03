@@ -422,7 +422,7 @@ def get_address_nodes_within_building(building, bbox):
 
 
 def find_osm_candidates(item, bounds):
-    g.street_number_first = is_street_number_first(*get_bbox_centroid(bounds))
+    check_is_street_number_first(bounds)
 
     nearby = []
     for osm, dist in get_nearby(bounds, item):
@@ -471,7 +471,7 @@ def get_item(item_id):
 
 
 def get_item_street_addresses(item):
-    street_address = [addr["text"] for addr in item.get_claim("P6375")]
+    street_address = [addr["text"] for addr in item.get_claim("P6375") if addr]
     if street_address or "P669" not in item.claims:
         return street_address
 
@@ -492,6 +492,8 @@ def get_item_street_addresses(item):
 
     return street_address
 
+def check_is_street_number_first(bounds):
+    g.street_number_first = is_street_number_first(*get_bbox_centroid(bounds))
 
 def get_markers(all_items):
     items = []
@@ -522,7 +524,7 @@ def get_markers(all_items):
 
 
 def wikidata_items(bounds):
-    g.street_number_first = is_street_number_first(*get_bbox_centroid(bounds))
+    check_is_street_number_first(bounds)
     q = get_items_in_bbox(bounds)
     db_items = q.all()
     items = get_markers(db_items)
