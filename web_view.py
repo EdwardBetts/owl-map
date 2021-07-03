@@ -280,6 +280,18 @@ def api_osm_objects():
     return cors_jsonify(success=True, objects=objects, duration=t1)
 
 
+@app.route("/api/1/item/Q<int:item_id>")
+def api_get_item(item_id):
+    t0 = time()
+    item = model.Item.query.get(item_id)
+    detail = api.item_detail(item)
+    t1 = time() - t0
+
+    return cors_jsonify(success=True,
+                        duration=t1,
+                        **detail)
+
+
 @app.route("/api/1/item/Q<int:item_id>/tags")
 def api_get_item_tags(item_id):
     t0 = time()
