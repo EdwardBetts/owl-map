@@ -284,12 +284,14 @@ def api_osm_objects():
 def api_get_item_tags(item_id):
     t0 = time()
     item = model.Item.query.get(item_id)
-    osm_list = api.get_item_tags(item)
+    tags = api.get_item_tags(item)
+    osm_list = sorted(tags.keys())
     t1 = time() - t0
 
     return cors_jsonify(success=True,
                         qid=item.qid,
                         tag_or_key_list=osm_list,
+                        tag_src=tags,
                         duration=t1)
 
 

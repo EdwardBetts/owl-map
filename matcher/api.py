@@ -495,32 +495,34 @@ def get_item_street_addresses(item):
 def check_is_street_number_first(bounds):
     g.street_number_first = is_street_number_first(*get_bbox_centroid(bounds))
 
+def item_detail(item):
+    locations = [list(i.get_lat_lon()) for i in item.locations]
+    if not hasattr(g, 'street_number_first'):
+        g.street_number_first = is_street_number_first(*locations[0])
+
+    image_filenames = item.get_claim("P18")
+
+    street_address = get_item_street_addresses(item)
+
+    d = {
+        "qid": item.qid,
+        "label": item.label(),
+        "description": item.description(),
+        "markers": locations,
+        "image_list": image_filenames,
+        "street_address": street_address,
+        "isa_list": item.get_isa_qids(),
+        "closed": item.closed(),
+    }
+
+    if aliases := item.get_aliases():
+        d["aliases"] = aliases
+
+    return d
+
+
 def get_markers(all_items):
-    items = []
-    for item in all_items:
-        if not item:
-            continue
-        locations = [list(i.get_lat_lon()) for i in item.locations]
-        image_filenames = item.get_claim("P18")
-
-        street_address = get_item_street_addresses(item)
-
-        d = {
-            "qid": item.qid,
-            "label": item.label(),
-            "description": item.description(),
-            "markers": locations,
-            "image_list": image_filenames,
-            "street_address": street_address,
-            "isa_list": [v["id"] for v in item.get_claim("P31") if v],
-        }
-
-        if aliases := item.get_aliases():
-            d["aliases"] = aliases
-
-        items.append(d)
-
-    return items
+    return [item_detail(item) for item in all_items if item]
 
 
 def wikidata_items(bounds):
