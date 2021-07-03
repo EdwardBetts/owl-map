@@ -2,7 +2,7 @@ from sqlalchemy import func, or_, and_
 from sqlalchemy.orm import selectinload
 from matcher import model, database, wikidata_api, wikidata
 from matcher.data import extra_keys
-from collections import Counter
+from collections import Counter, defaultdict
 from flask import g, current_app
 import re
 import os.path
@@ -169,9 +169,9 @@ def get_item_tags(item):
 
     isa_items = []
     isa_list = [v["numeric-id"] for v in item.get_claim("P31")]
-    isa_items = get_items(isa_list)
+    isa_items = [(isa, []) for isa in get_items(isa_list)]
 
-    osm_list = set()
+    osm_list = defaultdict(list)
 
     skip_isa = {row[0] for row in database.session.query(model.SkipIsA.item_id)}
     if item.is_tram_stop():
@@ -179,20 +179,27 @@ def get_item_tags(item):
 
     seen = set(isa_list) | skip_isa
     while isa_items:
-        isa = isa_items.pop()
+        isa, isa_path = isa_items.pop()
         if not isa:
             continue
+        isa_path = isa_path + [{'qid': isa.qid, 'label': isa.label()}]
         osm = [v for v in isa.get_claim("P1282") if v not in skip_tags]
         if isa.qid in extra_keys:
             osm += extra_keys[isa.qid]
 
-        osm_list.update(osm)
+        for i in osm:
+            osm_list[i].append(isa_path[:])
 
         subclass_of = [v["numeric-id"] for v in (isa.get_claim("P279") or []) if v]
-        isa_list = [isa_id for isa_id in subclass_of if isa_id not in seen]
+        religion = [v["numeric-id"] for v in (isa.get_claim("P140") or []) if v]
+        sport = [v["numeric-id"] for v in (isa.get_claim("P641") or []) if v]
+        use = [v["numeric-id"] for v in (isa.get_claim("P366") or []) if v]
+        check = subclass_of + religion + sport + use
+        print(isa.qid, isa.label(), check)
+        isa_list = [isa_id for isa_id in check if isa_id not in seen]
         seen.update(isa_list)
-        isa_items += get_items(isa_list)
-    return sorted(osm_list)
+        isa_items += [(isa, isa_path) for isa in get_items(isa_list)]
+    return {key: list(values) for key, values in osm_list.items()}
 
 
 def wikidata_items_count(bounds):
