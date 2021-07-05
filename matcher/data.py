@@ -168,6 +168,7 @@ extra_keys = {
     'Q33506': ['Key:building'],                 # museum
     'Q4287745': ['Tag:amenity=hospital',        # medical organization
                  'Tag:healthcare=hospital'],
+    'Q4022': ['Key:waterway'],                  # stream
 }
 
 property_map = [
