@@ -54,7 +54,9 @@ class Item(Base):
             return self.labels[lang]['value']
         elif 'en' in self.labels:
             return self.labels['en']['value']
-        return list(self.labels.values())[0]['value']
+
+        label_list = list(self.labels.values())
+        return label_list[0]['value'] if label_list else '[no label]'
 
     def description(self, lang='en'):
         if lang in self.descriptions:
