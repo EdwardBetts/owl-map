@@ -48,6 +48,15 @@
     </span>
   </button>
 
+  <div class="alert alert-primary alert-map" role="alert" v-if="area_too_big">
+    Zoom in to see Wikidata items on the map.
+  </div>
+
+  <div class="alert alert-primary alert-map text-center" role="alert" v-if="!area_too_big && this.too_many_items">
+    Found {{ this.item_count }} Wikidata items, too many to show on the map.<br>
+    Zoom in to see them.
+  </div>
+
   <div id="edit-count" class="p-2" v-if="upload_state === undefined && edits.length">
     <span>edits: {{ edits.length }}</span>
     <button class="btn btn-primary btn-sm ms-2" @click="close_item(); view_edits=true">
@@ -172,8 +181,8 @@
               <table class="table table-sm table-hover">
                 <tbody>
                   <tr v-for="osm in edit.osm" class="osm-candidate">
-                    <td class="text-end text-nowrap">
-                      {{ osm.distance.toFixed(0) }}m
+                    <td class="text-end">
+                      <span class="text-nowrap">{{ osm.distance.toFixed(0) }}m</span><br>
                       <a
                         :href="'https://www.openstreetmap.org/' + osm.identifier"
                         target="_blank"
@@ -352,7 +361,13 @@
         </div>
 
         <div v-if="current_item.nearby && current_item.nearby.length">
+
           <strong>Possible OSM matches</strong><br>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="show-tags" v-model="show_tags">
+            <label class="form-check-label" for="show-tags">show tags</label>
+          </div>
+
           <table class="table table-sm table-hover" @mouseleave="this.current_osm = undefined">
             <tbody>
               <tr
@@ -361,10 +376,8 @@
                   :class="{ 'table-primary': osm.selected }"
                   @mouseenter="this.current_osm=osm"
                   @click="select_osm(current_item, osm)">
-                <td>
-                  <input class="form-check-input" type="checkbox" v-model="osm.selected"/>
-                </td>
-                <td class="text-end text-nowrap">
+                <td class="text-nowrap">
+                  <input class="form-check-input" type="checkbox" v-model="osm.selected" v-if="username" />
                   {{ osm.distance.toFixed(0) }}m
                   <a
                     :href="'https://www.openstreetmap.org/' + osm.identifier"
@@ -397,6 +410,27 @@
                     <br>part of: {{ osm.part_of.join("; ") }}
                 </span>
 
+                <span v-if="osm.tags.ele">
+                    <br>elevation: {{ osm.tags.ele }} m
+                </span>
+
+                <span v-if="osm.area && osm.area > 1000 * 1000">
+                    <br>area: {{ (osm.area / (1000 * 1000)).toFixed(1) }} km²
+                </span>
+
+                <span v-if="osm.tags.wikidata">
+                  <br>Wikidata tag:
+                  <a :href="`https://wikidata.org/wiki/${osm.tags.wikidata}`">{{ osm.tags.wikidata }}</a>
+                </span>
+                <div class="card" v-if="show_tags">
+                  <div class="card-body tag-card-body">
+                    <span class="badge bg-secondary float-end">tags</span>
+                 <div class="card-text" v-for="(value, key) of osm.tags">
+                   <strong>{{ key }}</strong>:
+                     {{ value.replace(/;/g, '; ') }}
+                   </div>
+                </div>
+                </div>
                 </td>
               </tr>
             </tbody>
@@ -460,6 +494,7 @@ export default {
     startLat: Number,
     startLon: Number,
     startZoom: Number,
+    startRadius: Number,
     username: String,
   },
   data() {
@@ -500,9 +535,20 @@ export default {
       changeset_id: undefined,
       upload_state: undefined,
       upload_progress: 0,
+      show_tags: false,
+      flag_show_hover_isa: false,
+      debug: false,
+      map_area: undefined,
+      item_count: undefined,
     };
   },
   computed: {
+    area_too_big() {
+      return this.map_area > 1000 * 1000 * 1000;
+    },
+    too_many_items() {
+      return this.item_count > 400;
+    },
     loading() {
       return this.osm_loading || this.wikidata_loading;
     },
@@ -610,29 +656,39 @@ export default {
 
       item.markers.forEach((marker) => {
         var coords = marker.getLatLng();
-        var circle = L.circle(coords, { radius: 20, color: "orange" }).addTo(this.map);
+        var circle = L.circleMarker(coords, { radius: 20, color: "orange" }).addTo(this.map);
         this.selected_circles.push(circle);
       });
 
     },
     hover_isa(highlight_isa) {
+      // if (!this.flag_show_hover_isa) return;
       this.drop_hover_circles();
 
       for(const item of Object.values(this.selected_items)) {
-        var opacity = 0.9;
+        // var opacity = 0.9;
         if (highlight_isa) {
           var match = item.wikidata.isa_list.some(isa => isa == highlight_isa.qid);
-          opacity = match ? 1 : 0.2;
+          // opacity = match ? 1 : 0.2;
           if (match) {
             this.add_hover_circles(item);
           }
         }
-        this.set_item_opacity(item, opacity);
+        // this.set_item_opacity(item, opacity);
 
       }
     }
   },
   methods: {
+    bounds_area(bounds) {
+      var width = bounds.getSouthWest().distanceTo(bounds.getSouthEast());
+      var height = bounds.getSouthWest().distanceTo(bounds.getNorthWest());
+
+      return width * height;
+    },
+    bounds_param() {
+      return 'bounds=' + this.map.getBounds().toBBoxString();
+    },
     close_edit_list() {
       this.view_edits = false;
       if (this.upload_state == 'done') {
@@ -797,7 +853,7 @@ export default {
     add_hover_circles(item) {
       item.markers.forEach((marker) => {
         var coords = marker.getLatLng();
-        var circle = L.circle(coords, { radius: 20 }).addTo(this.map);
+        var circle = L.circleMarker(coords, { radius: 20 }).addTo(this.map);
         this.hover_circles.push(circle);
       });
     },
@@ -946,10 +1002,10 @@ export default {
       }
 
       this.items = {};
-      clear_isa();
+      this.clear_isa();
     },
 
-    load_wikidata_items() {
+    load_wikidata_items(bounds) {
       this.load_button_pressed = true;
       this.wikidata_loaded = false;
       this.osm_loaded = false;
@@ -958,8 +1014,7 @@ export default {
       this.wikidata_loading = true;
       this.osm_loading = true;
 
-
-      var bounds = this.map.getBounds();
+      bounds ||= this.map.getBounds();
 
       var items_url = this.api_base_url + "/api/1/items";
       var osm_objects_url = this.api_base_url + "/api/1/osm";
@@ -1011,16 +1066,20 @@ export default {
         this.hits = [];
       });
     },
-    auto_load() {
+    auto_load(bounds) {
+      console.log('auto_load');
       var count_url = this.api_base_url + "/api/1/count";
-      var bounds = this.map.getBounds();
+      bounds ||= this.map.getBounds();
+      this.map_area = this.bounds_area(bounds);
+      if (this.area_too_big) {
+        this.item_count = undefined;
+        if (this.items) this.clear_items();
+        return;
+      }
       var params = { bounds: bounds.toBBoxString() };
       axios.get(count_url, { params: params }).then((response) => {
-        var count = response.data.count;
-        if (count < 1000) {
-          this.load_wikidata_items();
-        }
-
+        this.item_count = response.data.count;
+        if (!this.too_many_items) this.load_wikidata_items(bounds);
       });
     },
     run_search() {
@@ -1119,14 +1178,15 @@ export default {
     var lat = this.startLat ?? 52.19679;
     var lon = this.startLon ?? 0.15224;
     this.center = [lat, lon];
-    this.zoom = this.startZoom || 16;
+    this.zoom = this.startZoom;
   },
   mounted() {
     this.$nextTick(function () {
       var options = {
         center: this.center,
-        zoom: this.zoom,
+        zoom: this.zoom || 16,
       };
+
 
       var map = L.map("map", options);
       var osm_url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -1136,14 +1196,23 @@ export default {
       });
       osm.addTo(map);
 
+      var bounds;
+      if (this.startRadius) {
+        console.log('radius:', this.startRadius);
+        var bounds = L.latLng(this.center).toBounds(this.startRadius * 2000);
+        map.fitBounds(bounds);
+      } else {
+        bounds = map.getBounds();
+      }
+
       map.on("moveend", this.map_moved);
       this.map = map;
 
       this.detail_qid = this.qid_from_url();
       if (this.detail_qid) {
-        this.load_wikidata_items();
+        this.load_wikidata_items(bounds);
       } else {
-        this.auto_load();
+        this.auto_load(bounds);
       }
     });
 
@@ -1170,6 +1239,13 @@ export default {
 #load-btn {
   position: absolute;
   top: 77px;
+  left: 67.5%;
+  transform: translate(-50%, 0);
+}
+
+.alert-map {
+  position: absolute;
+  bottom: 2rem;
   left: 67.5%;
   transform: translate(-50%, 0);
 }
@@ -1203,6 +1279,10 @@ export default {
   bottom: 0px;
   overflow: auto;
   width: 35%;
+}
+
+.tag-card-body {
+  padding: 0.5rem 0.5rem;
 }
 
 </style>

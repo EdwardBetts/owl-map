@@ -12,6 +12,7 @@ import flask_login
 import json
 import GeoIP
 import re
+import maxminddb
 
 srid = 4326
 re_point = re.compile(r'^POINT\((.+) (.+)\)$')
@@ -24,6 +25,7 @@ login_manager = flask_login.LoginManager(app)
 login_manager.login_view = 'login_route'
 osm_api_base = 'https://api.openstreetmap.org/api/0.6'
 
+maxminddb_reader = maxminddb.open_database(app.config["GEOLITE2"])
 
 DB_URL = "postgresql:///matcher"
 database.init_db(DB_URL)
@@ -72,11 +74,14 @@ def check_for_tagged_qid(qid):
 def geoip_user_record():
     gi = GeoIP.open(app.config["GEOIP_DATA"], GeoIP.GEOIP_STANDARD)
 
-    remote_ip = request.remote_addr
+    remote_ip = request.get('ip', request.remote_addr)
     return gi.record_by_addr(remote_ip)
 
 
 def get_user_location():
+    remote_ip = request.args.get('ip', request.remote_addr)
+    return maxminddb_reader.get(remote_ip)["location"]
+
     gir = geoip_user_record()
     return (gir["latitude"], gir["longitude"]) if gir else None
 
@@ -167,14 +172,15 @@ def old_map_location(zoom, lat, lng):
 
 @app.route("/map")
 def map_start_page():
-    location = get_user_location()
-    lat, lon = location
+    loc = get_user_location()
 
     return redirect(url_for(
         'map_location',
+        lat=f'{loc["latitude"]:.5f}',
+        lon=f'{loc["longitude"]:.5f}',
         zoom=16,
-        lat=f'{lat:.5f}',
-        lon=f'{lon:.5f}',
+        radius=loc["accuracy_radius"],
+        ip=request.args.get('ip'),
     ))
 
 @app.route("/map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lon>")
@@ -182,7 +188,14 @@ def map_location(zoom, lat, lon):
     user = flask_login.current_user
     username = user.username if user.is_authenticated else None
 
-    return render_template("map.html", zoom=zoom, lat=lat, lon=lon, username=username)
+    return render_template(
+        "map.html",
+        zoom=zoom,
+        lat=lat,
+        lon=lon,
+        radius=request.args.get('radius'),
+        username=username
+    )
 
 
 @app.route("/old_map")
