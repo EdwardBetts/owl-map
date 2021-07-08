@@ -396,7 +396,7 @@ def login_openstreetmap():
 
 @app.route('/logout')
 def logout():
-    next_url = request.args.get('next') or url_for('index')
+    next_url = request.args.get('next') or url_for('map_start_page')
     flask_login.logout_user()
     flash('you are logged out')
     return redirect(next_url)
