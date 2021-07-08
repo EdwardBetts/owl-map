@@ -27,9 +27,16 @@
         </li>
       </ul>
       <ul class="navbar-nav">
-        <li class="nav-item">
-          <a v-if="username" class="nav-link" href="#">{{ username }}</a>
-          <a v-else class="nav-link" href="/login">Login</a>
+        <template v-if="username">
+          <li class="nav-item">
+            <a class="nav-link" href="#">{{ username }}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/logout">Logout</a>
+          </li>
+        </template>
+        <li v-else class="nav-item">
+          <a class="nav-link" href="/login">Login</a>
         </li>
       </ul>
     </div>
