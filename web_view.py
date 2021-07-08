@@ -164,12 +164,6 @@ def identifier_page(pid):
     )
 
 
-@app.route("/old_map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lng>")
-def old_map_location(zoom, lat, lng):
-    t = int(time())
-    return render_template("map.html", zoom=zoom, lat=lat, lng=lng, time=t)
-
-
 @app.route("/map")
 def map_start_page():
     loc = get_user_location()
@@ -196,17 +190,6 @@ def map_location(zoom, lat, lon):
         radius=request.args.get('radius'),
         username=username
     )
-
-
-@app.route("/old_map")
-def old_map_start_page():
-    t = int(time())
-    location = get_user_location()
-    if not location:
-        return render_template("map.html", zoom=16, lat=None, lng=None, time=t)
-
-    lat, lng = location
-    return render_template("map.html", zoom=16, lat=lat, lng=lng, time=t)
 
 
 @app.route("/search/map")
