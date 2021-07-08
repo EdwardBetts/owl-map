@@ -169,6 +169,7 @@ extra_keys = {
     'Q4287745': ['Tag:amenity=hospital',        # medical organization
                  'Tag:healthcare=hospital'],
     'Q4022': ['Key:waterway'],                  # stream
+    'Q55659167': ['Key:waterway'],              # natural watercourse
 }
 
 property_map = [
