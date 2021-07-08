@@ -1229,11 +1229,6 @@ export default {
 
 <style>
 
-#nav {
-  left: 35%;
-  width: 65%;
-}
-
 #map {
   position: absolute;
   top: 57px;
@@ -1281,7 +1276,7 @@ export default {
 #sidebar {
   position: absolute;
   background: #eee;
-  top: 0px;
+  top: 57px;
   left: 0px;
   bottom: 0px;
   overflow: auto;
