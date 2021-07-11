@@ -15,7 +15,7 @@ def lookup_with_params(**kwargs):
         "format": "jsonv2",
         "addressdetails": 1,
         "extratags": 1,
-        "limit": 20,
+        "limit": 30,
         "namedetails": 1,
         "accept-language": "en",
         "polygon_text": 0,
