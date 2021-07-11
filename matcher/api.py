@@ -47,6 +47,10 @@ def get_bbox_centroid(bbox):
     centroid = database.session.query(func.ST_AsText(func.ST_Centroid(bbox))).scalar()
     return reversed(re_point.match(centroid).groups())
 
+def drop_way_area(tags):
+    if "way_area" in tags:
+        del tags["way_area"]
+    return tags
 
 def get_part_of(thing, bbox):
     db_bbox = make_envelope(bbox)
@@ -61,7 +65,12 @@ def get_part_of(thing, bbox):
         model.Polygon.tags.has_key("name"),
     )
 
-    return [polygon.tags for polygon in q]
+    return [{
+        "type": polygon.type,
+        "id": polygon.id,
+        "tags": drop_way_area(polygon.tags),
+        "area": polygon.area,
+    } for polygon in q]
 
 
 def get_and_save_item(qid):
@@ -454,7 +463,7 @@ def find_osm_candidates(item, bounds):
         if address := address_from_tags(tags):
             cur["address"] = address
 
-        part_of = [i["name"] for i in get_part_of(osm, bounds) if i["name"] != name]
+        part_of = [i for i in get_part_of(osm, bounds) if i["tags"]["name"] != name]
         if part_of:
             cur["part_of"] = part_of
 
