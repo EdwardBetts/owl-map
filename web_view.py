@@ -387,7 +387,7 @@ def logout():
 @app.route('/done/')
 def done():
     flash('login successful')
-    return redirect(url_for('index'))
+    return redirect(url_for('map_start_page'))
 
 @app.route('/oauth/start')
 def start_oauth():
@@ -462,7 +462,7 @@ def oauth_callback():
     database.session.commit()
     flask_login.login_user(user)
 
-    next_page = session.get('next') or url_for('index_page')
+    next_page = session.get('next') or url_for('map_start_page')
     return redirect(next_page)
 
 
