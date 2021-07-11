@@ -439,6 +439,8 @@ def find_osm_candidates(item, bounds):
             address_list = []
         cur = {
             "identifier": osm.identifier,
+            "type": osm.type,
+            "id": osm.id,
             "distance": dist,
             "name": name,
             "tags": tags,
