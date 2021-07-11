@@ -344,8 +344,6 @@ def api_search():
     q = request.args["q"]
     hits = nominatim.lookup(q)
     for hit in hits:
-        if "geotext" in hit:
-            del hit["geotext"]
         hit["name"] = nominatim.get_hit_name(hit)
         hit["label"] = nominatim.get_hit_label(hit)
         hit["address"] = list(hit["address"].items())
