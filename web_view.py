@@ -177,6 +177,26 @@ def map_start_page():
         ip=request.args.get('ip'),
     ))
 
+
+@app.route("/search")
+def search_page():
+    loc = get_user_location()
+    q = request.args.get('q')
+
+    user = flask_login.current_user
+    username = user.username if user.is_authenticated else None
+
+    return render_template(
+        "map.html",
+        lat=f'{loc["latitude"]:.5f}',
+        lon=f'{loc["longitude"]:.5f}',
+        zoom=16,
+        radius=loc["accuracy_radius"],
+        username=username,
+        mode="search",
+        q=q,
+    )
+
 @app.route("/map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lon>")
 def map_location(zoom, lat, lon):
     user = flask_login.current_user
@@ -188,7 +208,9 @@ def map_location(zoom, lat, lon):
         lat=lat,
         lon=lon,
         radius=request.args.get('radius'),
-        username=username
+        username=username,
+        mode="map",
+        q=None,
     )
 
 
@@ -215,8 +237,8 @@ def search_map_page():
     )
 
 
-@app.route("/search")
-def search_page():
+@app.route("/old_search")
+def old_search_page():
     q = request.args.get("q")
     if not q:
         return render_template("search.html", hits=None, bbox_list=None)

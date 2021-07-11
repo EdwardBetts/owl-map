@@ -228,7 +228,10 @@ class MapMixin:
 
     @declared_attr
     def geojson_str(cls):
-        return column_property(func.ST_AsGeoJSON(cls.way), deferred=True)
+        return column_property(
+            func.ST_AsGeoJSON(cls.way, maxdecimaldigits=6),
+            deferred=True
+        )
 
     @declared_attr
     def as_EWKT(cls):
@@ -288,6 +291,11 @@ class Line(MapMixin, Base):
 
 class Polygon(MapMixin, Base):
     way_area = Column(Float)
+
+    @classmethod
+    def get_osm(cls, osm_type, osm_id):
+        src_id = osm_id * {'way': 1, 'relation': -1}[osm_type]
+        return cls.query.get(src_id)
 
     @property
     def type(self):

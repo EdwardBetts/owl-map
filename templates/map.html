@@ -23,6 +23,8 @@
         startZoom: {{ zoom }},
         startRadius: {{ radius | tojson }},
         username: {{ username | tojson }},
+        startMode: {{ mode | tojson }},
+        q: {{ q | tojson }},
       };
 
       const app = createApp(App, props).mount('#app');

@@ -36,7 +36,7 @@
           </li>
         </template>
         <li v-else class="nav-item">
-          <a class="nav-link" href="/login">Login</a>
+          <a class="nav-link" href="/login">Login with OpenStreetMap</a>
         </li>
       </ul>
     </div>
@@ -45,23 +45,21 @@
   <div id="map">
   </div>
 
-  <button ref="btn" id="load-btn" type="button" class="btn btn-primary btn-lg" @click="load_wikidata_items">
-    <span v-if="!loading">
-      Load Wikidata items
-    </span>
-    <span v-if="loading">
-    <span class="spinner-border spinner-border-sm"></span>
-      Loading ...
-    </span>
+  <button ref="btn" id="select-area-btn" type="button" class="btn btn-primary btn-lg" v-if="current_hit" @click.stop="select_area()">
+		Select this area
   </button>
+
 
   <div class="alert alert-primary alert-map" role="alert" v-if="area_too_big">
     Zoom in to see Wikidata items on the map.
   </div>
 
+  <div class="alert alert-primary alert-map" role="alert" v-if="loading && !current_item">
+    Found {{ item_count }} Wikidata items. Updating markers. <span class="spinner-border spinner-border-sm"></span>
+  </div>
+
   <div class="alert alert-primary alert-map text-center" role="alert" v-if="!area_too_big && this.too_many_items">
-    Found {{ this.item_count }} Wikidata items, too many to show on the map.<br>
-    Zoom in to see them.
+    Found {{ this.item_count.toLocaleString('en-US') }} Wikidata items.<br/> Zoom in to see them.
   </div>
 
   <div id="edit-count" class="p-2" v-if="upload_state === undefined && edits.length">
@@ -147,7 +145,7 @@
         Changes saved.
         <a :href="`https://www.openstreetmap.org/changeset/${changeset_id}`"
           target="_blank">
-          view your changeset
+          view your changeset <i class="fa fa-external-link"></i>
         </a>
       </div>
 
@@ -218,7 +216,11 @@
                     </span>
 
                     <span v-if="osm.part_of">
-                        <br>part of: {{ osm.part_of.join("; ") }}
+                        <br>part of:
+                        <span v-for="(part_of, part_of_index) in osm.part_of">
+                          <span v-if="part_of_index != 0">, </span>
+                          [{{ JSON.stringify(part_of.tags) }}]
+                        </span>
                     </span>
 
                     <br>
@@ -246,7 +248,7 @@
 
     <div v-if="!current_item && !view_edits">
 
-      <div class="card m-2">
+      <div v-if="!edits.length" class="card m-2">
         <div class="card-body">
           <form id="search-form" class="row row-cols-lg-auto g-3 align-items-center" @submit.prevent="run_search">
             <div class="col-12">
@@ -256,18 +258,75 @@
               <button type="submit" id="search-btn" class="btn btn-primary">search</button>
             </div>
           </form>
+          <p v-if="recent_search" class="card-text mt-2">Searching for '{{ recent_search }}', found {{ hits.length }} places.</p>
           <div class="list-group" v-if="hits.length">
             <a class="list-group-item list-group-item-action"
-                :class="{ active: hit.identifier == this.active_hit }"
+                :class="{ active: hit == this.current_hit }"
                 v-bind:key="hit.identifier"
                 v-for="hit in hits"
                 :href="hit_url(hit)"
+                @mouseenter="show_hit_on_map(hit)"
                 @click.prevent="visit(hit)">
-              {{ hit.name }} ({{ hit.category }})
+              {{ hit.name }} ({{ hit.label }})
             </a>
           </div>
+					<div class="alert alert-info mt-2" v-if="hits.length">
+						<i class="fa fa-info-circle"></i>
+						<span v-if="hits.length == 1">
+							One search result. Click the result to continue.
+						</span>
+						<span v-else>
+							Click a result to continue.
+						</span>
+					</div>
         </div>
       </div>
+
+      <div class="card m-2" v-if="show_instructions">
+        <div class="card-body">
+          <div class="h3 card-title">Link Wikidata and OpenStreetMap</div>
+          <div class="alert alert-info">
+            <i class="fa fa-info-circle"></i>
+            This software is a beta, it works but is incomplete.<br/><a href="/documentation">See what's broken</a>.</div>
+          <p class="card-text">This tool will help you link Wikidata items with the matching object on OpenStreetMap (OSM).</p>
+
+          <p v-if="!username" class="card-text">To save changes you need to <a href="/login">login via OpenStreetMap</a>.</p>
+
+          <p class="card-text">Zoom in or search for an area to work on.</p>
+
+          <!--
+
+          <p class="card-text">The map will show at most 400 items, if there are more then you need to zoom in before you can start editing.</p>
+
+          <p class="card-text">Wikidata items appear on the map as red or green markers. Items not linked for OSM appear in red, those that are linked appear in green. The map shows the location of Wikidata tagged OSM objects with a yellow pin.</p>
+
+          <p class="card-text">There are controls to filter what appears on the map. You have the option to hide Wikidata items that are already tagged on OSM. The type filter allows you to adjust what types of Wikidata item are displayed.</p>
+
+          <p class="card-text">Click on a marker to show details of the Wikidata item and find nearby possible OSM matches.</p>
+          -->
+        </div>
+      </div>
+
+      <div class="card m-2" v-if="!view_edits && isa_list.length">
+        <div class="card-body">
+          <div class="h5 card-title">Map key</div>
+          <ui class="list-group">
+            <li class="list-group-item">
+              <i style="background: #a23337; color: white" class="p-1 fa fa-wikidata"></i>
+              Wikidata item without OSM link
+            </li>
+            <li class="list-group-item">
+              <i style="background: #6dae40; color: white" class="p-1 fa fa-wikidata"></i>
+              Wikidata item with OSM link
+            </li>
+            <li class="list-group-item">
+              <i style="background: #f5bb39; color: white" class="p-1 fa fa-map"></i>
+              Linked OSM object
+            </li>
+          </ui>
+        </div>
+      </div>
+
 
 
       <div class="card m-2" v-if="!view_edits && isa_list.length">
@@ -342,6 +401,19 @@
             <br>{{wd_item.closed.join('; ')}}
           </span>
 
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="debug" v-model="debug">
+            <label class="form-check-label" for="debug">debug</label>
+          </div>
+
+          <div v-if="debug">
+            <a :href="`${api_base_url}/api/1/count?${bounds_param()}`" target="_blank">count</a> |
+            <a :href="`${api_base_url}/api/1/isa?${bounds_param()}`" target="_blank">IsA counts</a> |
+            <a :href="`${api_base_url}/api/1/item/${wd_item.qid}`" target="_blank">item</a> |
+            <a :href="`${api_base_url}/api/1/item/${wd_item.qid}/tags`" target="_blank">tags</a> |
+            <a :href="`${api_base_url}/api/1/item/${wd_item.qid}/candidates?${bounds_param()}`" target="_blank">candidates</a>
+          </div>
+
           </div>
           <div class="col">
 
@@ -354,7 +426,9 @@
             </div>
           </div>
 
+
           <span v-if="wd_item.image_list.length">
+            <strong>Image from Wikidata</strong><br/>
             <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal">
               <img class="w-100" :src="api_base_url + '/commons/' + wd_item.image_list[0]">
             </a>
@@ -367,12 +441,30 @@
         </div></div>
         </div>
 
+        <div v-if="!current_item.nearby" class="alert alert-info">
+          Searching for nearby OSM matches <span class="spinner-border spinner-border-sm"></span>
+        </div>
+
+        <div v-if="current_item.nearby && !current_item.nearby.length">
+          <strong>No OSM matches found nearby</strong>
+        </div>
         <div v-if="current_item.nearby && current_item.nearby.length">
 
-          <strong>Possible OSM matches</strong><br>
-          <div class="form-check form-switch">
+          <div v-if="!username" class="alert alert-info"><a href="/login">Login with OpenStreetMap</a> to add Wikidata tags</div>
+
+          <strong>Possible OSM matches</strong> (sorted by distance from item)<br>
+          show:
+          <div class="form-check form-switch form-check-inline">
             <input class="form-check-input" type="checkbox" id="show-tags" v-model="show_tags">
-            <label class="form-check-label" for="show-tags">show tags</label>
+            <label class="form-check-label" for="show-tags">tags</label>
+          </div>
+          <div class="form-check form-switch form-check-inline">
+            <input class="form-check-input" type="checkbox" id="show-area" v-model="show_area">
+            <label class="form-check-label" for="show-area">area</label>
+          </div>
+          <div class="form-check form-switch form-check-inline">
+            <input class="form-check-input" type="checkbox" id="show-presets" v-model="show_presets">
+            <label class="form-check-label" for="show-presets">type</label>
           </div>
 
           <table class="table table-sm table-hover" @mouseleave="this.current_osm = undefined">
@@ -380,7 +472,7 @@
               <tr
                   v-for="osm in current_item.nearby"
                   class="osm-candidate"
-                  :class="{ 'table-primary': osm.selected }"
+                  :class="{ 'table-success': osm.selected }"
                   @mouseenter="this.current_osm=osm"
                   @click="select_osm(current_item, osm)">
                 <td class="text-nowrap">
@@ -392,7 +484,11 @@
                     @click.stop><i class="fa fa-map-o"></i></a>
                 </td>
                 <td>
-                {{ osm.name || "no name" }}
+                <span class="badge bg-primary float-end">{{ osm.type }}</span>
+                <span v-if="osm.name">{{ osm.name }} </span>
+                <i v-else>no name </i>
+                <template v-if="show_presets && osm.presets.length">
+                  <br>
                 <span v-for="(p, index) in osm.presets">
                   <span v-if="index != 0">, </span>
                   <a
@@ -401,6 +497,7 @@
                     target="_blank"
                     @click.stop>{{p.name}} <i class="fa fa-external-link"></i></a>
                 </span>
+                </template>
 
                 <span v-if="osm.address && osm.address != osm.name">
                     <br>street address: {{ osm.address }}
@@ -414,15 +511,19 @@
                 </span>
 
                 <span v-if="osm.part_of">
-                    <br>part of: {{ osm.part_of.join("; ") }}
+                    <br>part of:
+                    <span v-for="(part_of, part_of_index) in osm.part_of">
+                      <span v-if="part_of_index != 0">, </span>
+                      {{ part_of.tags.name }}
+                    </span>
                 </span>
 
                 <span v-if="osm.tags.ele">
                     <br>elevation: {{ osm.tags.ele }} m
                 </span>
 
-                <span v-if="osm.area && osm.area > 1000 * 1000">
-                    <br>area: {{ (osm.area / (1000 * 1000)).toFixed(1) }} km²
+                <span v-if="show_area && osm.area && osm.area > 10 * 10">
+                    <br>area: {{ format_area(osm.area) }}
                 </span>
 
                 <span v-if="osm.tags.wikidata">
@@ -453,6 +554,7 @@
 import L from "leaflet";
 import { ExtraMarkers } from "leaflet-extra-markers";
 import axios from "redaxios";
+import {unref, toRaw} from 'vue';
 
 var redMarker = ExtraMarkers.icon({
   icon: "fa-wikidata",
@@ -503,6 +605,8 @@ export default {
     startZoom: Number,
     startRadius: Number,
     username: String,
+    startMode: String,
+    q: String,
   },
   data() {
     return {
@@ -543,13 +647,25 @@ export default {
       upload_state: undefined,
       upload_progress: 0,
       show_tags: false,
+      show_area: true,
+      show_presets: true,
       flag_show_hover_isa: false,
       debug: false,
       map_area: undefined,
       item_count: undefined,
+      mode: undefined,
+      current_hit: undefined,
+      recent_search: undefined,
     };
   },
   computed: {
+    show_instructions() {
+      return (this.mode != "search"
+							&& !this.loading
+              && !this.isa_list.length
+              && !this.view_edits
+              && !this.current_item);
+    },
     area_too_big() {
       return this.map_area > 1000 * 1000 * 1000;
     },
@@ -558,6 +674,9 @@ export default {
     },
     loading() {
       return this.osm_loading || this.wikidata_loading;
+    },
+    current_qid() {
+      return this.current_item ? this.current_item.wikidata.qid : undefined;
     },
     wd_item() {
       return this.current_item ? this.current_item.wikidata : undefined;
@@ -610,7 +729,6 @@ export default {
 
         if (!edit_lookup[qid]) {
           qid_order.push(qid);
-          console.log(edit.item);
           edit_lookup[qid] = {
             'qid': qid,
             'wikidata': edit.item.wikidata,
@@ -687,6 +805,20 @@ export default {
     }
   },
   methods: {
+    format_area(area) {
+      var value, unit, dp;
+      if(area > 1000 * 1000) {
+        value = area / (1000 * 1000);
+        unit = "km²";
+        dp = 1;
+      } else {
+        value = area;
+        unit = "m²";
+        dp = 0;
+      }
+
+      return value.toLocaleString("en-US", {maximumFractionDigits: dp}) + " " + unit
+    },
     bounds_area(bounds) {
       var width = bounds.getSouthWest().distanceTo(bounds.getSouthEast());
       var height = bounds.getSouthWest().distanceTo(bounds.getNorthWest());
@@ -752,8 +884,7 @@ export default {
               break;
             case "progress":
               var edit = app.edits[data.num];
-              app.upload_progress = ((edit.num + 1) * 100) / app.edits.length;
-              console.log(app.upload_progress);
+              app.upload_progress = ((data.num + 1) * 100) / app.edits.length;
               edit.osm.upload_state = "progress";
               break;
             case "saved":
@@ -785,6 +916,7 @@ export default {
       return index;
     },
     select_osm(item, osm) {
+      if (!this.username) return;
       osm.selected = !osm.selected;
       var index = this.edit_list_index(item, osm);
 
@@ -825,7 +957,7 @@ export default {
       var lng = c.lng.toFixed(5);
       var path = `/map/${zoom}/${lat}/${lng}`;
       if (this.current_item) {
-        path += `?item=${this.wd_item.qid}`;
+        path += `?item=${this.current_qid}`;
       }
       return path;
     },
@@ -897,18 +1029,43 @@ export default {
       this.drop_hover_circles();
     },
     map_moved() {
+      if (this.mode == "search") return;
       this.auto_load();
       this.update_map_path();
     },
+    current_state() {
+      var c = this.map.getCenter();
+      return {
+        mode: this.mode,
+        zoom: this.map.getZoom(),
+        lat: c.lat.toFixed(5),
+        lon: c.lng.toFixed(5),
+        search_text: this.search_text,
+        detail_qid: this.current_qid,
+        item_count: this.item_count,
+        map_area: this.map_area,
+        hits: toRaw(this.hits),
+        current_hit: toRaw(this.current_hit),
+        isa_ticked: toRaw(this.isa_ticked),
+        isa_labels: toRaw(this.isa_labels),
+        current_osm: toRaw(this.current_osm),
+        recent_search: this.recent_search,
+      };
+    },
     update_map_path() {
-      history.replaceState(null, null, this.build_map_path());
+      var state = this.current_state();
+      history.replaceState(state, '', this.build_map_path());
     },
     open_item(qid) {
       var item = this.items[qid];
+      if (this.current_item == item) return; // already open
       this.view_edits = false;
       this.current_osm = undefined;
       this.current_item = item;
-      this.update_map_path();
+
+      var state = this.current_state();
+      history.pushState(state, '', this.build_map_path());
+
       this.hover_isa = undefined;
 
       if (item.detail_requested !== undefined) return;
@@ -967,11 +1124,38 @@ export default {
       var lon = parseFloat(hit.lon).toFixed(5);
       return `/map/16/${lat}/${lon}`
     },
-    visit(hit) {
-      var lat = parseFloat(hit.lat).toFixed(5);
-      var lon = parseFloat(hit.lon).toFixed(5);
+    fit_bounds_to_hit(hit) {
+      var bounds = [[hit.boundingbox[0], hit.boundingbox[2]],
+                    [hit.boundingbox[1], hit.boundingbox[3]]];
+      this.map.fitBounds(bounds);
+    },
+    show_hit_on_map(hit) {
+      this.fit_bounds_to_hit(hit);
+      this.current_hit = hit;
+      this.update_search_state();
+    },
+    select_area() {
+      this.current_hit = undefined;
+      this.mode = "map";
+      this.hits = [];
+      this.search_text = "";
+      this.auto_load();
 
-      this.map.setView([lat, lon], 16);
+      var state = this.current_state();
+      history.pushState(state, '', this.build_map_path());
+    },
+
+    visit(hit) {
+      this.current_hit = undefined;
+      this.hits = [];
+      this.recent_search = undefined;
+      this.search_text = "";
+      this.fit_bounds_to_hit(hit);
+      this.mode = "map";
+
+      var state = this.current_state();
+      history.pushState(state, '', this.build_map_path());
+
       this.auto_load();
     },
 
@@ -1074,7 +1258,6 @@ export default {
       });
     },
     auto_load(bounds) {
-      console.log('auto_load');
       var count_url = this.api_base_url + "/api/1/count";
       bounds ||= this.map.getBounds();
       this.map_area = this.bounds_area(bounds);
@@ -1089,12 +1272,30 @@ export default {
         if (!this.too_many_items) this.load_wikidata_items(bounds);
       });
     },
+    update_search_state() {
+      history.replaceState(this.current_state(), '', "/search?q=" + this.search_text);
+    },
+    search_path() {
+        return "/search?q=" + this.search_text;
+    },
     run_search() {
       if (!this.search_text) return;
+      this.current_hit = undefined;
       var params = { q: this.search_text };
-      var search_url = this.api_base_url + "/api/1/search";
-      axios.get(search_url, { params: params }).then((response) => {
+      var api_search_url = this.api_base_url + "/api/1/search";
+      axios.get(api_search_url, { params: params }).then((response) => {
         this.hits = response.data.hits;
+        if (!this.hits.length) return;
+
+        this.recent_search = this.search_text;
+        this.item_count = undefined;
+        this.map_area = undefined;
+        this.clear_items();
+        this.mode = "search";
+
+        this.current_hit = this.hits[0];
+        this.fit_bounds_to_hit(this.current_hit);
+        history.pushState(this.current_state(), '', this.search_path());
       });
 
     },
@@ -1107,7 +1308,6 @@ export default {
         if (!item.wikidata) missing_qids.push(qid);
       }
 
-      console.log('missing:', missing_qids);
       if (missing_qids.length == 0) {
         this.update_wikidata();
         this.check_for_missing_done = true;
@@ -1179,15 +1379,46 @@ export default {
           marker_data.marker.setIcon(marker);
         });
       }
-    }
+    },
+    onpopstate(event) {
+      var state = event.state;
+      this.mode = state.mode;
+      this.zoom = state.zoom;
+      this.search_text = state.search_text;
+      this.center = [state.lat, state.lon];
+      this.detail_qid = state.detail_qid;
+      this.recent_search = state.recent_search;
+      if (!this.detail_qid) this.current_item = undefined;
+
+      this.item_count = state.item_count;
+      this.map_area = state.map_area;
+      this.hits = state.hits;
+      this.current_hit = state.current_hit;
+
+      /* 
+      this.isa_ticked = state.isa_ticked;
+      this.isa_labels = state.isa_labels;
+      */
+
+      this.current_osm = state.current_osm;
+
+      this.map.setView(this.center, this.zoom);
+
+      if (this.mode == "search") {
+        this.clear_items();
+        this.fit_bounds_to_hit(this.current_hit);
+      }
+    },
   },
   created() {
     var lat = this.startLat ?? 52.19679;
     var lon = this.startLon ?? 0.15224;
     this.center = [lat, lon];
     this.zoom = this.startZoom;
+    this.mode = this.startMode;
   },
   mounted() {
+
     this.$nextTick(function () {
       var options = {
         center: this.center,
@@ -1205,7 +1436,6 @@ export default {
 
       var bounds;
       if (this.startRadius) {
-        console.log('radius:', this.startRadius);
         var bounds = L.latLng(this.center).toBounds(this.startRadius * 2000);
         map.fitBounds(bounds);
       } else {
@@ -1215,12 +1445,20 @@ export default {
       map.on("moveend", this.map_moved);
       this.map = map;
 
-      this.detail_qid = this.qid_from_url();
-      if (this.detail_qid) {
-        this.load_wikidata_items(bounds);
+      if (this.mode == "search") {
+        this.search_text = this.q.trim();
+        this.run_search();
       } else {
-        this.auto_load(bounds);
+        this.detail_qid = this.qid_from_url();
+        if (this.detail_qid) {
+          this.load_wikidata_items(bounds);
+        } else {
+          this.auto_load(bounds);
+        }
+        this.update_map_path();
       }
+
+      window.onpopstate = this.onpopstate;
     });
 
   },
@@ -1229,26 +1467,27 @@ export default {
 
 <style>
 
+#select-area-btn {
+  position: absolute;
+  top: 77px;
+  left: 70%;
+  transform: translate(-50%, 0);
+}
+
+
 #map {
   position: absolute;
   top: 57px;
   bottom: 0px;
-  left: 35%;
+  left: 40%;
   width: 65%;
   z-index: -1;
-}
-
-#load-btn {
-  position: absolute;
-  top: 77px;
-  left: 67.5%;
-  transform: translate(-50%, 0);
 }
 
 .alert-map {
   position: absolute;
   bottom: 2rem;
-  left: 67.5%;
+  left: 70%;
   transform: translate(-50%, 0);
 }
 
@@ -1280,7 +1519,7 @@ export default {
   left: 0px;
   bottom: 0px;
   overflow: auto;
-  width: 35%;
+  width: 40%;
 }
 
 .tag-card-body {
