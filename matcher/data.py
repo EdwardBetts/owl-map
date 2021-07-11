@@ -159,7 +159,9 @@ extra_keys = {
                 'Tag:leisure=resort',
                 'Tag:landuse=recreation_ground'],
     'Q4830453': ['Key:office',
-                 'Tag:building=office'],        # business
+                 'Tag:building=office',
+                 'Tag:landuse=retail',
+                 'Tag:landuse=industrial'],     # business
     'Q43229': ['Key:office',
                'Tag:building=office'],          # organization
     'Q17084016': ['Tag:office=association',
@@ -170,6 +172,9 @@ extra_keys = {
                  'Tag:healthcare=hospital'],
     'Q4022': ['Key:waterway'],                  # stream
     'Q55659167': ['Key:waterway'],              # natural watercourse
+    'Q14350': ['Key:communication:radio',
+               'Tag:studio=radio',
+               'Tag:amenity=studio'],           # radio station
 }
 
 property_map = [
