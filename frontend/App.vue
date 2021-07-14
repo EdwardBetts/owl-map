@@ -375,19 +375,6 @@
             <br>{{wd_item.closed.join('; ')}}
           </span>
 
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="debug" v-model="debug">
-            <label class="form-check-label" for="debug">debug</label>
-          </div>
-
-          <div v-if="debug">
-            <a :href="`${api_base_url}/api/1/count?${bounds_param()}`" target="_blank">count</a> |
-            <a :href="`${api_base_url}/api/1/isa?${bounds_param()}`" target="_blank">IsA counts</a> |
-            <a :href="`${api_base_url}/api/1/item/${wd_item.qid}`" target="_blank">item</a> |
-            <a :href="`${api_base_url}/api/1/item/${wd_item.qid}/tags`" target="_blank">tags</a> |
-            <a :href="`${api_base_url}/api/1/item/${wd_item.qid}/candidates?${bounds_param()}`" target="_blank">candidates</a>
-          </div>
-
           </div>
           <div class="col">
 
@@ -413,6 +400,20 @@
           </span>
 
         </div></div>
+        </div>
+
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="debug" v-model="debug">
+          <label class="form-check-label" for="debug">debug</label>
+        </div>
+
+        <div v-if="debug">
+          API calls:
+          <a :href="`${api_base_url}/api/1/count?${bounds_param()}`" target="_blank">count</a> |
+          <a :href="`${api_base_url}/api/1/isa?${bounds_param()}`" target="_blank">item type counts</a> |
+          <a :href="`${api_base_url}/api/1/item/${wd_item.qid}`" target="_blank">item detail</a> |
+          <a :href="`${api_base_url}/api/1/item/${wd_item.qid}/tags`" target="_blank">item tags</a> |
+          <a :href="`${api_base_url}/api/1/item/${wd_item.qid}/candidates?${bounds_param()}`" target="_blank">nearby OSM candidates</a>
         </div>
 
         <div v-if="!current_item.nearby" class="alert alert-info">
