@@ -394,7 +394,7 @@
           <div v-if="current_item.tag_or_key_list && current_item.tag_or_key_list.length">
             <strong>OSM tags/keys to search for</strong><br/>
             {{ current_item.tag_or_key_list.length }} tags/keys to consider
-            <a href="#" @click="show_tag_or_key_list = !show_tag_or_key_list">show/hide</a><br/>
+            <a href="#" @click.prevent="show_tag_or_key_list = !show_tag_or_key_list">show/hide</a><br/>
             <div v-if="show_tag_or_key_list">
               <div v-for="v in current_item.tag_or_key_list">{{ v }}</div>
             </div>
