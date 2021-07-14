@@ -425,7 +425,14 @@
         </div>
         <div v-if="current_item.nearby && current_item.nearby.length">
 
-          <div v-if="!username" class="alert alert-info"><a href="/login">Login with OpenStreetMap</a> to add Wikidata tags</div>
+          <div v-if="!username" class="alert alert-info">
+						<i class="fa fa-info-circle"></i>
+            <a href="/login">Login with OpenStreetMap</a> to add Wikidata tags</div>
+
+          <div v-if="edits.length" class="alert alert-info">
+						<i class="fa fa-info-circle"></i>
+            Use the save button in the top right corner of the map to upload changes.
+          </div>
 
           <strong>Possible OSM matches</strong> (sorted by distance from item)<br>
           show:
