@@ -178,6 +178,18 @@ def map_start_page():
     ))
 
 
+@app.route("/documentation")
+def documentation_page():
+    user = flask_login.current_user
+    username = user.username if user.is_authenticated else None
+
+    return render_template(
+        "documentation.html",
+        active_tab="documentation",
+        username=username
+    )
+
+
 @app.route("/search")
 def search_page():
     loc = get_user_location()
@@ -188,6 +200,7 @@ def search_page():
 
     return render_template(
         "map.html",
+        active_tab="map",
         lat=f'{loc["latitude"]:.5f}',
         lon=f'{loc["longitude"]:.5f}',
         zoom=16,
@@ -204,6 +217,7 @@ def map_location(zoom, lat, lon):
 
     return render_template(
         "map.html",
+        active_tab="map",
         zoom=zoom,
         lat=lat,
         lon=lon,

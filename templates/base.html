@@ -2,23 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>
     {% block title %}{% endblock %} OSM ↔ Wikidata
   </title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css')}}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap4/css/bootstrap.css')}}">
 
-  <link rel="stylesheet" href="{{ url_for('static', filename='fork-awesome/css/fork-awesome.css')}}">
+  <link rel="stylesheet" href="https://unpkg.com/bootstrap@5.0.1/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/fork-awesome@1.1.7/css/fork-awesome.min.css">
 
   {% block style %}
   {% endblock %}
 </head>
+{% from "navbar.html" import navbar with context %}
 
 <body>
-  <div class="container-fluid p-0">
+  {% block nav %}{{ navbar() }}{% endblock %}
   {% block content %}{% endblock %}
-  </div>
 
+  <script src="https://unpkg.com/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4" crossorigin="anonymous"></script>
   {% block script %}{% endblock %}
 </body>
 </html>

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="container my-2">
+
+  <h2>Instructions</h2>
+    <p>This tool will help you link Wikidata items with the matching object on OpenStreetMap (OSM).</p>
+
+    <p>To save changes you need to <a href="/login">login via OpenStreetMap</a>.</p>
+
+    <p>Zoom in or search for an area to work on.</p>
+
+    <p>The map will show at most 400 items, if there are more then you need to zoom in before you can start editing.</p>
+
+    <p>Wikidata items appear on the map as red or green markers. Items not linked for OSM appear in red, those that are linked appear in green. The map shows the location of Wikidata tagged OSM objects with a yellow pin.</p>
+
+    <p>There are controls to filter what appears on the map. You have the option to hide Wikidata items that are already tagged on OSM. The type filter allows you to adjust what types of Wikidata item are displayed.</p>
+
+    <p>Click on a marker to show details of the Wikidata item and find nearby possible OSM matches.</p>
+
+  <h2>Known faults</h2>
+
+  <h4>Language selection</h4>
+  <p>There is no way to change the user interface language or data display language.</p>
+
+  <h4>Map filters</h4>
+
+  <dd>
+    <dt>OSM/Wikidata link status numbers don't match current view</dt>
+    <dd>
+      <p>The item type counts update to only include items in the current view. The OSM/Wikidata link status should do the same, but don't currently.</p>
+    </dd>
+    <dt>It should be possible to hide items with a given item type</dt>
+    <dd>
+
+      <p>Item type filters have two states, <i>on</i> and <i>off</i>. There
+      should be three states: <i>include</i>, <i>exclude</i> and
+      <i>neutral</i>.</p>
+
+      <p>Some items in Wikidata are for things that no longer exist. If
+      something doesn't exist it won't be include in OpenStreetMap, so there is
+      nothing to match with. A good example are cinemas, somebody
+      has loaded a historical database of cinemas into Wikidata, many of them
+      no longer exist. On Wikidata they have the item types <i>movie theater
+        (Q41253)</i> and <i>destroyed building or structure (Q19860854)</i>.
+      There is no way with the existing filters to say show me cinemas unless
+      they have the type <i>destroyed building or structure (Q19860854)</i>.
+      </p>
+    </dd>
+    </dl>
+
+  <h4>Item detail page</h4>
+
+  <p>Image doesn't update until the list of nearby OSM matches has been downloaded.</p>
+
+  <h4>List of nearby possible OSM matches</h4>
+
+  <ol>
+    <li>Only OSM objects within the current map view are shown.</li>
+    <li>The list is only filtered on OSM tags/keys from the Wikidata item. There is no filtering by name, street address or identifier.</li>
+    <li>Matching linear features, like streets and waterways, could be improved. It should be possible to select a way then automatically select other connected ways with the same name.</li>
+    <li>The list of OSM objects shows name and street addresses but not identifiers.</li>
+    <li>Unnamed boundary ways that are part of a relation should be hidden by default.</li>
+    <li>The code that identifiers OSM object types could be more precise. For example a mosque is labelled as a 'place of worship', it should be labelled as a mosque.</li>
+  </ol>
+</div>
+{% endblock %}
