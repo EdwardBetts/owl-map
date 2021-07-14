@@ -244,14 +244,29 @@
       <div class="card m-2" v-if="show_instructions">
         <div class="card-body">
           <div class="h3 card-title">Link Wikidata and OpenStreetMap</div>
-          <div class="alert alert-info">
-            <i class="fa fa-info-circle"></i>
-            This software is a beta, it works but is incomplete.<br/><a href="/documentation">See what's broken</a>.</div>
+          <div class="alert alert-danger">
+            <i class="fa fa-exclamation-triangle"></i>
+            <!-- This software is beta, it works but is incomplete.<br/><a href="/documentation">See what's broken</a>. -->
+            This software is unfinished. Only mock editing happens, nothing is uploaded to the OpenStreetMap database yet. <a href="/documentation">See what's broken</a>
+          </div>
           <p class="card-text">This tool will help you link Wikidata items with the matching object on OpenStreetMap (OSM).</p>
 
           <p v-if="!username" class="card-text">To save changes you need to <a href="/login">login via OpenStreetMap</a>.</p>
 
           <p class="card-text">Zoom in or search for an area to work on.</p>
+
+          <hr>
+
+          <p>This project was created by Edward Betts
+          [<a href="https://twitter.com/edwardbetts/"><i class="fa fa-twitter"></i></a>].</p>
+
+          <p class="card-text">
+            Discussion of collaboration between Wikidata and OpenStreetMap happens on the
+            <a href="https://t.me/wikimaps" target="_blank" class="text-nowrap">
+              <i class="fa fa-telegram"></i>Wikimaps Telegram channel</a> and the
+            <a href="https://osmus.slack.com/archives/CUP8V1Z61" target="_blank" class="text-nowrap">
+              <i class="fa fa-slack"></i>OpenStreetMap/Wikimedia Slack channel</a>.
+          </p>
 
           <!--
 
