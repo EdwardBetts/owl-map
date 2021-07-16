@@ -1501,7 +1501,7 @@ export default {
   top: 57px;
   bottom: 0px;
   left: 40%;
-  width: 65%;
+  width: 60%;
   z-index: -1;
 }
 
