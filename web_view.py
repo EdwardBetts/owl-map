@@ -1,14 +1,17 @@
-#!/usr/bin/python3
+#!/usr/bin/python3.9
 
 from flask import (Flask, render_template, request, jsonify, redirect, url_for, g,
-                   flash, session, Response)
+                   flash, session, Response, stream_with_context)
 from sqlalchemy import func
 from matcher import (nominatim, model, database, commons, wikidata, wikidata_api,
                      osm_oauth, edit, mail, api)
 from matcher.data import property_map
 from time import time, sleep
 from requests_oauthlib import OAuth1Session
+from lxml import etree
+from sqlalchemy.orm.attributes import flag_modified
 import flask_login
+import requests
 import json
 import GeoIP
 import re
@@ -509,7 +512,7 @@ def validate_edit_list(edits):
         osm_type, _, osm_id = e['osm'].partition('/')
         osm_id = int(osm_id)
         if osm_type == 'node':
-            assert model.Point.get(osm_id)
+            assert model.Point.query.get(osm_id)
         else:
             src_id = osm_id if osm_type == "way" else -osm_id
             assert (model.Line.query.get(src_id)
@@ -546,45 +549,138 @@ def api_edit_session(session_id):
 
     return cors_jsonify(success=True, session_id=session_id)
 
-@app.route("/api/1/real_save/<int:session_id>")
+class VersionMismatch(Exception):
+    pass
+
+def osm_object(osm_type, osm_id):
+    if osm_type == "node":
+        return model.Point.query.get(osm_id)
+
+    src_id = osm_id * {'way': 1, 'relation': -1}[osm_type]
+    for cls in model.Line, model.Polygon:
+        obj = cls.query.get(src_id)
+        if obj:
+            return obj
+
+
+def process_match(changeset_id, e):
+    osm_type, _, osm_id = e['osm'].partition('/')
+    qid = e["qid"]
+    item_id = qid[1:]
+
+    osm = osm_object(osm_type, osm_id)
+    assert osm
+
+    r = edit.get_existing(osm_type, osm_id)
+    if r.status_code == 410 or r.content == b"":
+        return "deleted"
+
+    root = etree.fromstring(r.content)
+    existing = root.find('.//tag[@k="wikidata"]')
+    if e["op"] == "add" and existing is not None:
+        return "already_added"
+    if e["op"] == "remove" and existing is None:
+        return "already_removed"
+
+    root = etree.fromstring(r.content)
+    root[0].set("changeset", str(changeset_id))
+    if e["op"] == "add":
+        tag = etree.Element("tag", k="wikidata", v=qid)
+        root[0].append(tag)
+    if e["op"] == "remove":
+        root[0].remove(existing)
+
+    element_data = etree.tostring(root)
+    try:
+        success = edit.save_element(osm_type, osm_id, element_data)
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 409 and "Version mismatch" in r.text:
+            raise VersionMismatch
+        mail.error_mail(
+            "error saving element", element_data.decode("utf-8"), e.response
+        )
+        database.session.commit()
+        return "element-error"
+
+    if not success:
+        return "element-error"
+
+    osm.tags["wikidata"] = qid
+    flag_modified(osm, "tags")
+
+    db_edit = model.ChangesetEdit(
+        changeset_id=changeset_id,
+        item_id=item_id,
+        osm_id=osm_id,
+        osm_type=osm_type,
+    )
+    database.session.add(db_edit)
+    database.session.commit()
+
+    return "saved"
+
+@app.route("/api/1/save/<int:session_id>")
 def api_save_changeset(session_id):
+    assert g.user.is_authenticated
+
+    mock = g.user.mock_upload
+    api_call = api_mock_save_changeset if mock else api_real_save_changeset
+    return api_call(session_id)
+
+
+def api_real_save_changeset(session_id):
     es = model.EditSession.query.get(session_id)
 
-    def send_message(event, **data):
+    def send(event, **data):
         data["type"] = event
         return f"data: {json.dumps(data)}\n\n"
 
-    def stream():
+    def stream(user):
         changeset = edit.new_changeset(es.comment)
         r = edit.create_changeset(changeset)
         reply = r.text.strip()
 
         if reply == "Couldn't authenticate you":
             mail.open_changeset_error(session_id, changeset, r)
-            yield send_message("auth-fail", error=reply)
+            yield send("auth-fail", error=reply)
             return
 
         if not reply.isdigit():
             mail.open_changeset_error(session_id, changeset, r)
-            yield send_message("changeset-error", error=reply)
+            yield send("changeset-error", error=reply)
             return
 
         changeset_id = int(reply)
-        yield send_message("open", id=changeset_id)
+        yield send("open", id=changeset_id)
 
         update_count = 0
 
-        edit.record_changeset(
-            id=changeset_id, comment=es.comment, update_count=update_count
+        change = edit.record_changeset(
+            id=changeset_id, user=user, comment=es.comment, update_count=update_count
         )
 
-        for e in es.edit_list:
-            pass
+        # each edit contains these keys:
+        # qid: Wikidata item QID
+        # osm: OpenStreetMap identifier
+        # op: either 'add' or 'remove'
 
-    return Response(stream(), mimetype='text/event-stream')
+        for num, e in enumerate(es.edit_list):
+            print(num, e)
+            yield send("progress", edit=e, num=num)
+            result = process_match(changeset_id, e)
+            yield send(result, edit=e, num=num)
+            if result == "saved":
+                update_count += 1
+                change.update_count = update_count
+            database.session.commit()
 
-@app.route("/api/1/save/<int:session_id>")
-def mock_api_save_changeset(session_id):
+        yield send("closing")
+        edit.close_changeset(changeset_id)
+        yield send("done")
+
+    return Response(stream_with_context(stream(g.user)), mimetype='text/event-stream')
+
+def api_mock_save_changeset(session_id):
     es = model.EditSession.query.get(session_id)
 
     def send(event, **data):
