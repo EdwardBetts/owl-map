@@ -265,7 +265,7 @@
           <div class="alert alert-danger">
             <i class="fa fa-exclamation-triangle"></i>
             <!-- This software is beta, it works but is incomplete.<br/><a href="/documentation">See what's broken</a>. -->
-            This software is unfinished. Only mock editing happens, nothing is uploaded to the OpenStreetMap database yet. <a href="/documentation">See what's broken</a>
+            This software is unfinished. Only mock editing happens, nothing is uploaded to the OpenStreetMap database yet. <a href="/documentation" class="alert-link">See what's broken</a>
           </div>
           <p class="card-text">This tool will help you link Wikidata items with the matching object on OpenStreetMap (OSM).</p>
 
