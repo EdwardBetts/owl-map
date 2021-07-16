@@ -5,7 +5,7 @@
   </div>
 
   <button ref="btn" id="select-area-btn" type="button" class="btn btn-primary btn-lg" v-if="current_hit" @click.stop="select_area()">
-		Select this area
+    Select this area
   </button>
 
 
@@ -247,15 +247,15 @@
               {{ hit.name }} ({{ hit.label }})
             </a>
           </div>
-					<div class="alert alert-info mt-2" v-if="hits.length">
-						<i class="fa fa-info-circle"></i>
-						<span v-if="hits.length == 1">
-							One search result. Click the result to continue.
-						</span>
-						<span v-else>
-							Click a result to continue.
-						</span>
-					</div>
+          <div class="alert alert-info mt-2" v-if="hits.length">
+            <i class="fa fa-info-circle"></i>
+            <span v-if="hits.length == 1">
+              One search result. Click the result to continue.
+            </span>
+            <span v-else>
+              Click a result to continue.
+            </span>
+          </div>
         </div>
       </div>
 
@@ -444,11 +444,11 @@
         <div v-if="current_item.nearby && current_item.nearby.length">
 
           <div v-if="!username" class="alert alert-info">
-						<i class="fa fa-info-circle"></i>
+            <i class="fa fa-info-circle"></i>
             <a href="/login">Login with OpenStreetMap</a> to add Wikidata tags</div>
 
           <div v-if="edits.length" class="alert alert-info">
-						<i class="fa fa-info-circle"></i>
+            <i class="fa fa-info-circle"></i>
             Use the save button in the top right corner of the map to upload changes.
           </div>
 
@@ -663,7 +663,7 @@ export default {
   computed: {
     show_instructions() {
       return (this.mode != "search"
-							&& !this.loading
+              && !this.loading
               && !this.isa_list.length
               && !this.view_edits
               && !this.current_item);
