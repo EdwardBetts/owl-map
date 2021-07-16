@@ -455,6 +455,7 @@ def find_osm_candidates(item, bounds):
             "geojson": osm.geojson(),
             "presets": get_presets_from_tags(osm),
             "address_list": address_list,
+            "centroid": list(osm.get_centroid()),
         }
         if hasattr(osm, 'area'):
             cur["area"] = osm.area
