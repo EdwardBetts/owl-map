@@ -598,6 +598,11 @@ var osmOrangeMarker = ExtraMarkers.icon({
   prefix: "fa",
 });
 
+function beforeUnloadListener(event) {
+    event.preventDefault();
+    return event.returnValue = "";
+};
+
 export default {
   props: {
     startLat: Number,
@@ -745,6 +750,9 @@ export default {
     },
   },
   watch: {
+    edits(edit_list) {
+      this.update_unload_warning(edit_list);
+    },
     selected_items(new_items, old_items) {
       for (const qid of Object.keys(new_items)) {
         if (!old_items[qid])
@@ -807,6 +815,13 @@ export default {
     }
   },
   methods: {
+    update_unload_warning(edit_list) {
+      if (edit_list.length) {
+        addEventListener("beforeunload", beforeUnloadListener, {capture: true});
+      } else {
+        removeEventListener("beforeunload", beforeUnloadListener, {capture: true});
+      }
+    },
     format_area(area) {
       var value, unit, dp;
       if(area > 1000 * 1000) {
@@ -898,6 +913,7 @@ export default {
               break;
             case "done":
               app.upload_state = "done";
+              removeEventListener("beforeunload", beforeUnloadListener, {capture: true});
               es.close();
               break;
           }
@@ -935,6 +951,8 @@ export default {
         edit.outline.removeFrom(this.map);
         this.edits.splice(index, 1);
       }
+
+      this.update_unload_warning(this.edits);
 
       var marker = this.getMarker(item);
 
