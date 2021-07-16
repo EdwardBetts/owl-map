@@ -1430,6 +1430,8 @@ export default {
     },
     onpopstate(event) {
       var state = event.state;
+      if (!state) return;
+
       this.mode = state.mode;
       this.zoom = state.zoom;
       this.search_text = state.search_text;
