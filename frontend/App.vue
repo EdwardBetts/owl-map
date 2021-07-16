@@ -196,7 +196,7 @@
                         <br>part of:
                         <span v-for="(part_of, part_of_index) in osm.part_of">
                           <span v-if="part_of_index != 0">, </span>
-                          [{{ JSON.stringify(part_of.tags) }}]
+                          {{ part_of.tags.name }}
                         </span>
                     </span>
 
