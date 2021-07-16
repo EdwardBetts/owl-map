@@ -288,6 +288,11 @@ class Line(MapMixin, Base):
     def type(self):
         return "way" if self.src_id > 0 else "relation"
 
+    @classmethod
+    def get_osm(cls, osm_type, osm_id):
+        src_id = osm_id * {'way': 1, 'relation': -1}[osm_type]
+        return cls.query.get(src_id)
+
 
 class Polygon(MapMixin, Base):
     way_area = Column(Float)
