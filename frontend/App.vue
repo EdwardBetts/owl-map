@@ -103,18 +103,22 @@
       </div>
 
       <div v-if="upload_state == 'init'" class="alert alert-info" role="alert">
+        <i class="fa fa-info-circle"></i>
         Starting upload.
       </div>
 
       <div v-if="upload_state == 'uploading'" class="alert alert-info" role="alert">
+        <i class="fa fa-info-circle"></i>
         Uploading changes.
       </div>
 
       <div v-if="upload_state == 'closing'" class="alert alert-info" role="alert">
+        <i class="fa fa-info-circle"></i>
         Closing changeset.
       </div>
 
       <div v-if="upload_state == 'done'" class="alert alert-success" role="alert">
+        <i class="fa fa-info-circle"></i>
         Changes saved.
         <a :href="`https://www.openstreetmap.org/changeset/${changeset_id}`"
           target="_blank">
