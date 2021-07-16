@@ -28,6 +28,7 @@
         username: {{ username | tojson }},
         startMode: {{ mode | tojson }},
         q: {{ q | tojson }},
+        mockUpload: {{ g.user.is_authenticated and g.user.mock_upload | tojson }},
       };
 
       const app = createApp(App, props).mount('#app');

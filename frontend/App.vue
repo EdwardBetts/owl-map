@@ -54,7 +54,21 @@
 
       <div class="card w-100 bg-light mb-2">
         <div class="card-body">
-          <p class="card-text">{{ edits.length }} edits to upload</p>
+
+          <template v-if="upload_state === undefined">
+            <div v-if="mockUpload" class="alert alert-danger">
+              <i class="fa fa-exclamation-triangle"></i>
+              Changes won't be saved to OpenStreetMap. This software uses a mock upload process to allow testing of the user interface, while it is still in development.
+            </div>
+            <div v-else class="alert alert-info">
+              <i class="fa fa-info-circle"></i>
+              Editing is live, changes will be uploaded to OpenStreetMap.
+            </div>
+          </template>
+
+          <p class="card-text">
+            {{ edits.length + (edits.length == 1 ? " edit" : " edits") }} to upload
+          </p>
           <form @submit.prevent="upload">
             <div class="mb-3">
               <label for="changesetComment" class="form-label">Changeset comment</label>
@@ -590,6 +604,7 @@ export default {
     startMode: String,
     q: String,
     defaultComment: String,
+    mockUpload: Boolean,
   },
   data() {
     return {
