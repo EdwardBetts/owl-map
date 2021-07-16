@@ -847,11 +847,39 @@ export default {
     },
     close_edit_list() {
       this.view_edits = false;
-      if (this.upload_state == 'done') {
-        this.edits = [];
-        this.upload_progress = 0;
-        this.upload_state = undefined;
-      }
+      if (this.upload_state != 'done') return;
+
+      this.edits.forEach(edit => {
+        var item = edit.item;
+        var identifier = edit.osm.identifier;
+        edit.outline.removeFrom(this.map);
+        if (edit.osm.selected) {
+          if (item.osm) {
+            if (item.osm[identifier]) return;
+          } else {
+            item.osm = {};
+          }
+
+          var keys = ['identifier', 'id', 'type', 'geojson', 'centroid', 'name'];
+          var osm = Object.fromEntries(keys.map(key => [key, edit.osm[key]]));
+          osm['wikidata'] = item.qid;
+          item.osm[identifier] = osm;
+          this.add_osm_to_map(item, osm);
+        }
+      });
+
+      var updated_items = new Set(this.edits.map(edit => edit.item));
+      this.edits = [];
+      this.upload_progress = 0;
+      this.upload_state = undefined;
+
+      updated_items.forEach(item => {
+        var marker = this.getMarker(item);
+
+        item.wikidata.markers.forEach((marker_data) => {
+          marker_data.marker.setIcon(marker);
+        });
+      });
     },
     upload() {
       console.log('upload triggered');
