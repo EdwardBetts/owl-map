@@ -1066,8 +1066,6 @@ export default {
         map_area: this.map_area,
         hits: toRaw(this.hits),
         current_hit: toRaw(this.current_hit),
-        isa_ticked: toRaw(this.isa_ticked),
-        isa_labels: toRaw(this.isa_labels),
         current_osm: toRaw(this.current_osm),
         recent_search: this.recent_search,
       };
@@ -1414,11 +1412,6 @@ export default {
       this.map_area = state.map_area;
       this.hits = state.hits;
       this.current_hit = state.current_hit;
-
-      /* 
-      this.isa_ticked = state.isa_ticked;
-      this.isa_labels = state.isa_labels;
-      */
 
       this.current_osm = state.current_osm;
 
