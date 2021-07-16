@@ -589,6 +589,7 @@ export default {
     username: String,
     startMode: String,
     q: String,
+    defaultComment: String,
   },
   data() {
     return {
@@ -624,7 +625,7 @@ export default {
       show_tag_or_key_list: undefined,
       edits: [],
       view_edits: false,
-      changeset_comment: "Add wikidata tag",
+      changeset_comment: undefined,
       changeset_id: undefined,
       upload_state: undefined,
       upload_progress: 0,
@@ -1398,6 +1399,7 @@ export default {
     this.center = [lat, lon];
     this.zoom = this.startZoom;
     this.mode = this.startMode;
+    this.changeset_comment = this.defaultComment || '+wikidata';
   },
   mounted() {
 

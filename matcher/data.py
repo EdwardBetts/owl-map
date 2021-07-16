@@ -175,6 +175,9 @@ extra_keys = {
     'Q14350': ['Key:communication:radio',
                'Tag:studio=radio',
                'Tag:amenity=studio'],           # radio station
+    'Q166118': ['Tag:tourism=museum',
+                'Tag:amenity=library'],         # archive
+    'Q486972': ['Key:place'],                   # human settlement
 }
 
 property_map = [
