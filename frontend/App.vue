@@ -1102,11 +1102,7 @@ export default {
       axios.get(item_osm_candidates_url, { params: params }).then((response) => {
         var qid = response.data.qid;
         var item = this.items[qid];
-        var osm_identifiers = []
-
-        if (item.osm) {
-          item.osm.forEach((osm) => { osm_identifiers.push(osm.identifier); });
-        }
+        var osm_identifiers = item.osm ? Object.keys(item.osm) : [];
 
         item.nearby = response.data.nearby;
         item.nearby.forEach((osm) => {
@@ -1213,7 +1209,22 @@ export default {
       this.items = {};
       this.clear_isa();
     },
+    add_osm_to_map(item, osm) {
+        var group = item.group ||= L.featureGroup();
+        var icon = osmYellowMarker;
+        var marker = L.marker(osm.centroid, { opacity: 0.9, title: osm.name, icon: icon });
+        osm.marker = marker;
+        marker.addTo(group);
+        this.mouse_events(marker, item.qid);
 
+        if (osm.type != "node" && osm.geojson) {
+          var mapStyle = { fillOpacity: 0 };
+          var geojson = L.geoJSON(null, { style: mapStyle });
+          geojson.addData(osm.geojson);
+          geojson.addTo(group);
+          item.outline = geojson;
+        }
+    },
     load_wikidata_items(bounds) {
       this.load_button_pressed = true;
       this.wikidata_loaded = false;
@@ -1249,24 +1260,15 @@ export default {
       axios.get(osm_objects_url, { params: params }).then((response) => {
         response.data.objects.forEach((osm) => {
           var qid = osm.wikidata;
-          this.items[qid] ||= {'qid': qid};
-          if (this.items[qid].osm) return;
-          this.items[qid].osm = [];
-          this.items[qid].osm.push(osm);
-          var group = this.items[qid].group ||= L.featureGroup();
-          var icon = osmYellowMarker;
-          var marker = L.marker(osm.centroid, { opacity: 0.9, title: osm.name, icon: icon });
-          osm.marker = marker;
-          marker.addTo(group);
-          this.mouse_events(marker, qid);
-
-          if (osm.type != "node" && osm.geojson) {
-            var mapStyle = { fillOpacity: 0 };
-            var geojson = L.geoJSON(null, { style: mapStyle });
-            geojson.addData(osm.geojson);
-            geojson.addTo(group);
-            this.items[qid].outline = geojson;
+          var item = this.items[qid] ||= {'qid': qid};
+          if (item.osm) {
+            if (item.osm[osm.identifier]) return;
+          } else {
+            item.osm = {};
           }
+          item.osm[osm.identifier] = osm;
+          this.add_osm_to_map(item, osm);
+
         });
         this.osm_loaded = true;
         this.osm_loading = false;
@@ -1370,7 +1372,7 @@ export default {
 
         var wd_item = item.wikidata;
 
-        item.osm.forEach((osm) => {
+        Object.values(item.osm).forEach((osm) => {
           osm.marker.setIcon(wd_item ? osmYellowMarker : osmOrangeMarker);
         });
 
@@ -1380,7 +1382,7 @@ export default {
           var marker = this.item_has_edit(item) ? greenDarkMarker : greenMarker;
           marker_data.marker.setIcon(marker);
           item.lines ||= [];
-          item.osm.forEach((osm) => {
+          Object.values(item.osm).forEach((osm) => {
             var path = [osm.centroid, marker_data];
             var polyline = L.polyline(path, { color: "green" });
             polyline.addTo(item.group)
