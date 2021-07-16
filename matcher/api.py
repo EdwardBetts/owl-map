@@ -262,7 +262,7 @@ def get_tag_filter(cls, tag_list):
 
     return tag_filter
 
-def get_nearby(bbox, item, max_distance=300):
+def get_nearby(bbox, item, limit=60, max_distance=400):
     db_bbox = make_envelope(bbox)
 
     osm_objects = {}
@@ -300,7 +300,7 @@ def get_nearby(bbox, item, max_distance=300):
                              cls.tags["amenity"] != "atm",
                              cls.tags["amenity"] != "recycling")
 
-            q = q.limit(40)
+            q = q.limit(limit)
 
             # print(q.statement.compile(compile_kwargs={"literal_binds": True}))
 
@@ -315,7 +315,7 @@ def get_nearby(bbox, item, max_distance=300):
               for identifier, dist
               in sorted(distances.items(), key=lambda i:i[1])]
 
-    return nearby[:40]
+    return nearby[:limit]
 
 
 def get_preset_translations():
