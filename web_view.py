@@ -556,7 +556,7 @@ def osm_object(osm_type, osm_id):
     if osm_type == "node":
         return model.Point.query.get(osm_id)
 
-    src_id = osm_id * {'way': 1, 'relation': -1}[osm_type]
+    src_id = int(osm_id) * {'way': 1, 'relation': -1}[osm_type]
     for cls in model.Line, model.Polygon:
         obj = cls.query.get(src_id)
         if obj:
