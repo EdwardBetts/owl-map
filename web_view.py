@@ -562,8 +562,7 @@ def osm_object(osm_type, osm_id):
         if obj:
             return obj
 
-
-def process_match(changeset_id, e):
+def process_edit(changeset_id, e):
     osm_type, _, osm_id = e['osm'].partition('/')
     qid = e["qid"]
     item_id = qid[1:]
@@ -667,7 +666,7 @@ def api_real_save_changeset(session_id):
         for num, e in enumerate(es.edit_list):
             print(num, e)
             yield send("progress", edit=e, num=num)
-            result = process_match(changeset_id, e)
+            result = process_edit(changeset_id, e)
             yield send(result, edit=e, num=num)
             if result == "saved":
                 update_count += 1
