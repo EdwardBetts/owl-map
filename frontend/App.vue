@@ -21,7 +21,7 @@
     Found {{ this.item_count.toLocaleString('en-US') }} Wikidata items.<br/> Zoom in to see them.
   </div>
 
-  <div id="edit-count" class="p-2" v-if="upload_state === undefined && edits.length">
+  <div id="edit-count" class="p-2" v-if="!upload_state && edits.length">
     <span>edits: {{ edits.length }}</span>
     <button class="btn btn-primary btn-sm ms-2" @click="close_item(); view_edits=true">
       <i class="fa fa-upload"></i> save
@@ -865,6 +865,14 @@ export default {
           osm['wikidata'] = item.qid;
           item.osm[identifier] = osm;
           this.add_osm_to_map(item, osm);
+
+          item.lines ||= [];
+          item.wikidata.markers.forEach((marker_data) => {
+            var path = [osm.centroid, marker_data];
+            var polyline = L.polyline(path, { color: "green" });
+            polyline.addTo(item.group);
+            item.lines.push(polyline);
+          });
         }
       });
 
@@ -1103,9 +1111,10 @@ export default {
       history.replaceState(state, '', this.build_map_path());
     },
     open_item(qid) {
+      close_edit_list();
+
       var item = this.items[qid];
       if (this.current_item == item) return; // already open
-      this.view_edits = false;
       this.current_osm = undefined;
       this.current_item = item;
 
@@ -1413,8 +1422,8 @@ export default {
           Object.values(item.osm).forEach((osm) => {
             var path = [osm.centroid, marker_data];
             var polyline = L.polyline(path, { color: "green" });
-            polyline.addTo(item.group)
-            this.items[qid].lines.push(polyline);
+            polyline.addTo(item.group);
+            item.lines.push(polyline);
           });
         });
       }
