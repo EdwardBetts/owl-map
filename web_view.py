@@ -3,6 +3,7 @@
 from flask import (Flask, render_template, request, jsonify, redirect, url_for, g,
                    flash, session, Response, stream_with_context)
 from sqlalchemy import func
+from sqlalchemy.sql.expression import update
 from matcher import (nominatim, model, database, commons, wikidata, wikidata_api,
                      osm_oauth, edit, mail, api)
 from matcher.data import property_map
@@ -578,10 +579,12 @@ def process_edit(changeset_id, e):
     existing = root.find('.//tag[@k="wikidata"]')
     if e["op"] == "add" and existing is not None:
         return "already_added"
-    if e["op"] == "remove" and existing is None:
-        return "already_removed"
+    if e["op"] == "remove":
+        if existing is None:
+            return "already_removed"
+        if existing.get("v") != qid:
+            return "different_qid"
 
-    root = etree.fromstring(r.content)
     root[0].set("changeset", str(changeset_id))
     if e["op"] == "add":
         tag = etree.Element("tag", k="wikidata", v=qid)
@@ -604,8 +607,18 @@ def process_edit(changeset_id, e):
     if not success:
         return "element-error"
 
-    osm.tags["wikidata"] = qid
-    flag_modified(osm, "tags")
+    new_tags = dict(osm.tags)
+    if e["op"] == "add":
+        new_tags["wikidata"] = qid
+    if e["op"] == "remove":
+        del new_tags["wikidata"]
+
+    cls = type(osm)
+    database.session.execute(
+            update(cls).
+            where(cls.src_id == osm.src_id).
+            values(tags=new_tags)
+    )
 
     db_edit = model.ChangesetEdit(
         changeset_id=changeset_id,
