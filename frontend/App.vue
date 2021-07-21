@@ -1111,7 +1111,7 @@ export default {
       history.replaceState(state, '', this.build_map_path());
     },
     open_item(qid) {
-      close_edit_list();
+      this.close_edit_list();
 
       var item = this.items[qid];
       if (this.current_item == item) return; // already open
