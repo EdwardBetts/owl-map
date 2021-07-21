@@ -431,7 +431,7 @@
           <a :href="`${api_base_url}/api/1/isa?${bounds_param()}`" target="_blank">item type counts</a> |
           <a :href="`${api_base_url}/api/1/item/${wd_item.qid}`" target="_blank">item detail</a> |
           <a :href="`${api_base_url}/api/1/item/${wd_item.qid}/tags`" target="_blank">item tags</a> |
-          <a :href="`${api_base_url}/api/1/item/${wd_item.qid}/candidates?${bounds_param()}`" target="_blank">nearby OSM candidates</a>
+          <a :href="`${api_base_url}/api/1/item/${wd_item.qid}/candidates?${pad_bounds_param()}`" target="_blank">nearby OSM candidates</a>
         </div>
 
         <div v-if="!current_item.nearby" class="alert alert-info">
@@ -663,6 +663,7 @@ export default {
       mode: undefined,
       current_hit: undefined,
       recent_search: undefined,
+      pad_amount: 1.0,
     };
   },
   computed: {
@@ -844,6 +845,9 @@ export default {
     },
     bounds_param() {
       return 'bounds=' + this.map.getBounds().toBBoxString();
+    },
+    pad_bounds_param() {
+      return 'bounds=' + this.map.getBounds().pad(this.pad_amount).toBBoxString();
     },
     close_edit_list() {
       this.view_edits = false;
@@ -1133,7 +1137,7 @@ export default {
       });
 
       var item_osm_candidates_url = `${this.api_base_url}/api/1/item/${qid}/candidates`;
-      var bounds = this.map.getBounds();
+      var bounds = this.map.getBounds().pad(this.pad_amount);
       var params = { bounds: bounds.toBBoxString() };
 
       axios.get(item_osm_candidates_url, { params: params }).then((response) => {
