@@ -152,6 +152,7 @@ class Item(Base):
     def is_street(self):
         street_items = {
             'Q79007',  # street
+            'Q83620',  # thoroughfare
             'Q21000333',  # shopping street
         }
         return bool(street_items & set(self.get_isa_qids()))
