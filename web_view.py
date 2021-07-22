@@ -348,6 +348,11 @@ def api_find_osm_candidates(item_id):
     t0 = time()
     bounds = read_bounds_param()
     item = model.Item.query.get(item_id)
+    if not item:
+        return cors_jsonify(success=True,
+                            qid=f'Q{item_id}',
+                            error="item doesn't exist")
+
     nearby = api.find_osm_candidates(item, bounds)
 
     t1 = time() - t0
