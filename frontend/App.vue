@@ -353,7 +353,7 @@
               <span>
               <input class="form-check-input me-1" type="checkbox" :id="'isa-' + isa.qid" :value="isa.qid" v-model="isa_ticked">
               {{ isa.label }} ({{ isa.qid }})
-              <a href="#" @click.stop="isa_ticked=[isa.qid]">only</a>
+              <a href="#" @click.prevent="isa_ticked=[isa.qid]">only</a>
               </span>
               <span class="badge bg-primary rounded-pill">{{ isa.count }}</span>
             </label>
