@@ -189,7 +189,7 @@
                     </span>
 
                     <span v-if="osm.address_list.length">
-                        <br>address nodes: {{ osm.address_list.join("; ") }}
+                        <br>nodes within building: {{ osm.address_list.join("; ") }}
                     </span>
 
                     <span v-if="osm.part_of">
@@ -507,7 +507,7 @@
                 </span>
 
                 <span v-if="osm.address_list.length">
-                    <br>address nodes: {{ osm.address_list.join("; ") }}
+                    <br>nodes within building: {{ osm.address_list.join("; ") }}
                 </span>
 
                 <span v-if="osm.part_of">
