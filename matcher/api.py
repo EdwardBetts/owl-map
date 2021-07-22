@@ -510,7 +510,7 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
     if limit:
         s = s.limit(limit)
 
-    print(s.compile(compile_kwargs={"literal_binds": True}))
+    # print(s.compile(compile_kwargs={"literal_binds": True}))
 
     conn = database.session.connection()
     nearby = []
