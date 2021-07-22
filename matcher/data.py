@@ -138,7 +138,8 @@ extra_keys = {
     'Q22698': ['Tag:leisure=dog_park',
                'Tag:amenity=market',
                'Tag:place=square',
-               'Tag:leisure=common'],           # park
+               'Tag:leisure=common',
+               'Tag:leisure=nature_reserve'],   # park
     'Q738570': ['Tag:place=suburb'],            # central business district
     'Q1133961': ['Tag:place=suburb'],           # commercial district
     'Q935277': ['Tag:gnis:ftype=Playa',
@@ -178,6 +179,7 @@ extra_keys = {
     'Q166118': ['Tag:tourism=museum',
                 'Tag:amenity=library'],         # archive
     'Q486972': ['Key:place'],                   # human settlement
+    'Q42948': ['Key:barrier'],                  # wall
 }
 
 property_map = [
