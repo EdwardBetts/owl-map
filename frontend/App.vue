@@ -1280,7 +1280,6 @@ export default {
         this.clear_isa();
         this.isa_list = response.data.isa_count;
         this.isa_list.forEach(isa => {
-          this.isa_ticked.push(isa.qid);
           this.isa_labels[isa.qid] = isa.label;
           this.isa_lookup[isa.qid] = isa;
         });
@@ -1383,7 +1382,6 @@ export default {
           if (this.isa_lookup[isa.qid] === undefined) {
             this.isa_lookup[isa.qid] = isa;
             this.isa_list.push(isa);
-            this.isa_ticked.push(isa.qid);
           } else {
             this.isa_lookup[isa.qid].count += 1;
           }
