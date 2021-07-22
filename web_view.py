@@ -343,17 +343,54 @@ def api_get_item_tags(item_id):
                         duration=t1)
 
 
+def expand_street_name(name):
+    ret = {name}
+    if any(name.startswith(st) for st in ('St ', 'St. ')):
+        first_space = name.find(' ')
+        ret.add("Saint" + name[first_space:])
+
+    if ', ' in name:
+        for n in set(ret):
+            comma = n.find(", ")
+            ret.add(name[:comma])
+    elif '/' in name:
+        for n in set(ret):
+            ret.extend(part.strip() for part in n.split("/"))
+
+    return ret
+
+
 @app.route("/api/1/item/Q<int:item_id>/candidates")
 def api_find_osm_candidates(item_id):
     t0 = time()
-    bounds = read_bounds_param()
     item = model.Item.query.get(item_id)
     if not item:
         return cors_jsonify(success=True,
                             qid=f'Q{item_id}',
                             error="item doesn't exist")
 
-    nearby = api.find_osm_candidates(item, bounds)
+    label = item.label()
+    item_is_street = item.is_street()
+
+    if item_is_street:
+        max_distance = 2_000
+        limit = None
+        names = expand_street_name(label)
+    else:
+        max_distance = 400
+        limit = 60
+        names = None
+    nearby = api.find_osm_candidates(item,
+                                     limit=limit,
+                                     max_distance=max_distance,
+                                     names=names)
+
+    if item_is_street and not nearby:
+        # nearby = [osm for osm in nearby if street_name_match(label, osm)]
+
+        # try again without name filter
+        nearby = api.find_osm_candidates(item, limit=100,
+                                         max_distance=1_000)
 
     t1 = time() - t0
     return cors_jsonify(success=True, qid=item.qid, nearby=nearby, duration=t1)
