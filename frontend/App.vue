@@ -346,7 +346,10 @@
       <div class="card m-2" v-if="!view_edits && isa_list.length" id="isa-card">
         <div class="card-body">
           <div class="h5 card-title">item types</div>
-          <div><a href="#" @click.prevent="isa_tick_all">show all</a></div>
+          <div>
+            <button type="button" class="btn btn-primary btn-sm m-1" @click.prevent="isa_tick_all">select all</button>
+            <button type="button" class="btn btn-primary btn-sm m-1" @click.prevent="isa_ticked=[]">clear selection</button>
+          </div>
 
           <div class="list-group" @mouseout="this.hover_isa=undefined">
             <label class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" v-for="isa in isa_list" @mouseenter="this.hover_isa=isa">
