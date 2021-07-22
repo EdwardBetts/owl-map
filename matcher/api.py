@@ -77,14 +77,14 @@ def drop_way_area(tags):
         del tags["way_area"]
     return tags
 
-def get_part_of(table_name, src_id, bbox):
+def get_part_of(table_name, src_id, bbox_list):
     table_map = {'point': point, 'line': line, 'polygon': polygon}
     table_alias = table_map[table_name].alias()
 
     s = (select([polygon.c.osm_id,
                  polygon.c.tags,
                  func.ST_Area(func.ST_Collect(polygon.c.way))]).
-         where(and_(func.ST_Intersects(bbox, polygon.c.way),
+         where(and_(or_(*[func.ST_Intersects(bbox, polygon.c.way) for bbox in bbox_list]),
                     func.ST_Covers(polygon.c.way, table_alias.c.way),
                     table_alias.c.osm_id == src_id,
                     polygon.c.tags.has_key("name"),
@@ -405,22 +405,16 @@ def address_from_tags(tags):
     return " ".join(tags["addr:" + k] for k in keys)
 
 
-def old_get_address_nodes_within_building(building, bbox):
-    db_bbox = make_envelope(bbox)
-    ewkt = building.as_EWKT
-    q = model.Point.query.filter(
-        func.ST_Intersects(db_bbox, model.Point.way),
-        func.ST_Covers(func.ST_GeomFromEWKT(ewkt), model.Point.way),
-        model.Point.tags.has_key("addr:street"),
-        model.Point.tags.has_key("addr:housenumber"),
-    )
+def address_node_label(tags):
+    address = address_from_tags(tags)
+    return f"{tags['name']} ({address})" if "name" in tags else address
 
-    return [node.tags for node in q]
 
-def get_address_nodes_within_building(osm_id, bbox):
+def get_address_nodes_within_building(osm_id, bbox_list):
     q = model.Point.query.filter(
         polygon.c.osm_id == osm_id,
-        func.ST_Intersects(bbox, model.Point.way),
+        or_(*[func.ST_Intersects(bbox, model.Point.way)
+              for bbox in bbox_list]),
         func.ST_Covers(polygon.c.way, model.Point.way),
         model.Point.tags.has_key("addr:street"),
         model.Point.tags.has_key("addr:housenumber"),
@@ -447,8 +441,8 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
 
     check_is_street_number_first(item.locations[0].get_lat_lon())
 
-    db_bbox = or_(*[make_envelope_around_point(*loc.get_lat_lon(), max_distance)
-                    for loc in item.locations])
+    bbox_list = [make_envelope_around_point(*loc.get_lat_lon(), max_distance)
+                 for loc in item.locations]
 
     null_area = cast(None, Float)
     dist = column('dist')
@@ -462,7 +456,8 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
                        func.ST_AsGeoJSON(point.c.way),
                        null_area]).
                where(and_(
-                          func.ST_Intersects(db_bbox, point.c.way),
+                          or_(*[func.ST_Intersects(bbox, point.c.way)
+                                for bbox in bbox_list]),
                           model.ItemLocation.item_id == item_id,
                           or_(*get_tag_filter(point.c.tags, tag_list)))).
                group_by(point.c.osm_id, point.c.tags, point.c.way))
@@ -473,7 +468,7 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
                          func.ST_AsGeoJSON(func.ST_Collect(line.c.way)),
                          null_area]).
                  where(and_(
-                     func.ST_Intersects(db_bbox, line.c.way),
+                     or_(*[func.ST_Intersects(bbox, line.c.way) for bbox in bbox_list]),
                      model.ItemLocation.item_id == item_id,
                      or_(*get_tag_filter(line.c.tags, tag_list)))).
                group_by(line.c.osm_id, line.c.tags))
@@ -484,11 +479,11 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
                          func.ST_AsGeoJSON(func.ST_Collect(polygon.c.way)),
                          func.ST_Area(func.ST_Collect(polygon.c.way))]).
                  where(and_(
-                     func.ST_Intersects(db_bbox, polygon.c.way),
+                     or_(*[func.ST_Intersects(bbox, polygon.c.way) for bbox in bbox_list]),
                      model.ItemLocation.item_id == item_id,
                      or_(*get_tag_filter(polygon.c.tags, tag_list)))).
                group_by(polygon.c.osm_id, polygon.c.tags).
-               having(func.ST_Area(func.ST_Collect(polygon.c.way)) < 20 * func.ST_Area(db_bbox)))
+               having(func.ST_Area(func.ST_Collect(polygon.c.way)) < 20 * func.ST_Area(bbox_list[0])))
 
     tables = ([] if item_is_street else [s_point]) + [s_line, s_polygon]
     s = select([union(*tables).alias()]).where(dist < max_distance).order_by(dist)
@@ -530,8 +525,8 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
             name = address_from_tags(tags)
 
         if table == "polygon" and "building" in tags:
-            address_nodes = get_address_nodes_within_building(src_id, db_bbox)
-            address_list = [address_from_tags(addr) for addr in address_nodes]
+            address_nodes = get_address_nodes_within_building(src_id, bbox_list)
+            address_list = [address_node_label(addr) for addr in address_nodes]
         else:
             address_list = []
 
@@ -552,7 +547,7 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
         if area is not None:
             cur["area"] = area
 
-        part_of = [i for i in get_part_of(table, src_id, db_bbox)
+        part_of = [i for i in get_part_of(table, src_id, bbox_list)
                    if i["tags"]["name"] != name]
         if part_of:
             cur["part_of"] = part_of
