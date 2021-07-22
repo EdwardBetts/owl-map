@@ -244,13 +244,13 @@ def get_item_tags(item):
         for i in osm:
             osm_list[i].append(isa_path[:])
 
-        subclass_of = [v["numeric-id"] for v in (isa.get_claim("P279") or []) if v]
-        religion = [v["numeric-id"] for v in (isa.get_claim("P140") or []) if v]
-        sport = [v["numeric-id"] for v in (isa.get_claim("P641") or []) if v]
-        use = [v["numeric-id"] for v in (isa.get_claim("P366") or []) if v]
-        check = subclass_of + religion + sport + use
+        subclass_of = {v["numeric-id"] for v in (isa.get_claim("P279") or []) if v}
+        religion = {v["numeric-id"] for v in (isa.get_claim("P140") or []) if v}
+        sport = {v["numeric-id"] for v in (isa.get_claim("P641") or []) if v}
+        use = {v["numeric-id"] for v in (isa.get_claim("P366") or []) if v}
+        check = subclass_of | religion | sport | use
         print(isa.qid, isa.label(), check)
-        isa_list = [isa_id for isa_id in check if isa_id not in seen]
+        isa_list = check - seen
         seen.update(isa_list)
         isa_items += [(isa, isa_path) for isa in get_items(isa_list)]
     return {key: list(values) for key, values in osm_list.items()}
