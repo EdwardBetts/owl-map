@@ -532,6 +532,10 @@
                 <span v-if="osm.tags.wikidata">
                   <br>Wikidata tag:
                   <a :href="`https://wikidata.org/wiki/${osm.tags.wikidata}`">{{ osm.tags.wikidata }}</a>
+                  <span class="ms-1">
+                    <span v-if="osm.tags.wikidata == wd_item.qid" class="badge bg-success">this item</span>
+                    <span v-else class="badge bg-info">different item</span>
+                  </span>
                 </span>
                 <div class="card" v-if="show_tags">
                   <div class="card-body tag-card-body">
