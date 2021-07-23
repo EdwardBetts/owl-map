@@ -151,6 +151,7 @@ class Item(Base):
 
     def is_street(self):
         street_items = {
+            'Q34442',  # road
             'Q79007',  # street
             'Q83620',  # thoroughfare
             'Q21000333',  # shopping street
