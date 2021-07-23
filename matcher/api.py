@@ -232,6 +232,10 @@ def get_item_tags(item):
         skip_isa.add(41176)  # building (Q41176)
 
     seen = set(isa_list) | skip_isa
+    stop = {
+        "Q11799049",  # public institution
+        "Q7075", # library
+    }
     while isa_items:
         isa, isa_path = isa_items.pop()
         if not isa:
@@ -243,6 +247,10 @@ def get_item_tags(item):
 
         for i in osm:
             osm_list[i].append(isa_path[:])
+
+        if isa.qid in stop:
+            # item is specific enough, no need to keep walking the item hierarchy
+            continue
 
         subclass_of = {v["numeric-id"] for v in (isa.get_claim("P279") or []) if v}
         religion = {v["numeric-id"] for v in (isa.get_claim("P140") or []) if v}
