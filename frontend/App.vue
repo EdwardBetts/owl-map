@@ -13,7 +13,7 @@
     Zoom in to see Wikidata items on the map.
   </div>
 
-  <div class="alert alert-primary alert-map" role="alert" v-if="loading && !current_item">
+  <div class="alert alert-primary alert-map" role="alert" v-if="loading">
     Found {{ item_count }} Wikidata items. Updating markers. <span class="spinner-border spinner-border-sm"></span>
   </div>
 
