@@ -155,8 +155,22 @@ def get_items_in_bbox(bbox):
     return q
 
 
-def get_osm_with_wikidata_tag(bbox):
+def get_osm_with_wikidata_tag(bbox, isa_filter=None):
     bbox_str = ','.join(str(v) for v in bbox)
+    extra_sql = ""
+    if isa_filter:
+        q = (
+            model.Item.query.join(model.ItemLocation)
+            .filter(func.ST_Covers(make_envelope(bbox),
+                    model.ItemLocation.location))
+        )
+        q = add_isa_filter(q, isa_filter)
+        qids = [isa.qid for isa in q]
+        if not qids:
+            return []
+
+        qid_list = ",".join(f"'{qid}'" for qid in qids)
+        extra_sql += f" AND tags -> 'wikidata' in ({qid_list})"
 
     # easier than building this query with SQLAlchemy
     sql = f'''
@@ -178,7 +192,7 @@ UNION
     HAVING st_area(st_collect(way)) < 20 * st_area(ST_MakeEnvelope({bbox_str}, {srid}))
 ) as anon
 WHERE tags ? 'wikidata'
-'''
+''' + extra_sql
     conn = database.session.connection()
     result = conn.execute(text(sql))
 
@@ -263,17 +277,40 @@ def get_item_tags(item):
         isa_items += [(isa, isa_path) for isa in get_items(isa_list)]
     return {key: list(values) for key, values in osm_list.items()}
 
+def add_isa_filter(q, isa_qids):
 
-def wikidata_items_count(bounds):
+    q_subclass = database.session.query(model.Item.qid).filter(
+        func.jsonb_path_query_array(
+            model.Item.claims,
+            '$.P279[*].mainsnak.datavalue.value.id',
+        ).bool_op('?|')(list(isa_qids))
+    )
+
+    subclass_qid = {qid for qid, in q_subclass.all()}
+    # print(subclass_qid)
+
+    isa = func.jsonb_path_query_array(
+        model.Item.claims,
+        '$.P31[*].mainsnak.datavalue.value.id',
+    ).bool_op('?|')
+    return q.filter(isa(list(isa_qids | subclass_qid)))
+
+
+def wikidata_items_count(bounds, isa_filter=None):
+
     q = (
         model.Item.query.join(model.ItemLocation)
         .filter(func.ST_Covers(make_envelope(bounds), model.ItemLocation.location))
     )
 
+    if isa_filter:
+        q = add_isa_filter(q, isa_filter)
+
+    print(q.statement.compile(compile_kwargs={"literal_binds": True}))
+
     return q.count()
 
 def wikidata_isa_counts(bounds):
-
     db_bbox = make_envelope(bounds)
 
     q = (
@@ -632,9 +669,13 @@ def get_markers(all_items):
     return [item_detail(item) for item in all_items if item]
 
 
-def wikidata_items(bounds):
+def wikidata_items(bounds, isa_filter=None):
     check_is_street_number_first(get_bbox_centroid(bounds))
     q = get_items_in_bbox(bounds)
+
+    if isa_filter:
+        q = add_isa_filter(q, isa_filter)
+
     db_items = q.all()
     items = get_markers(db_items)
 
@@ -692,3 +733,20 @@ def missing_wikidata_items(qids, lat, lon):
         isa_count.append(isa)
 
     return dict(items=items, isa_count=isa_count)
+
+def isa_incremental_search(search_terms):
+    en_label = func.jsonb_extract_path_text(model.Item.labels, "en", "value")
+    q = model.Item.query.filter(
+            model.Item.claims.has_key("P1282"),
+            en_label.ilike(f"%{search_terms}%"),
+            func.length(en_label) < 20,
+    )
+
+    ret = []
+    for item in q:
+        cur = {
+            "qid": item.qid,
+            "label": item.label(),
+        }
+        ret.append(cur)
+    return ret

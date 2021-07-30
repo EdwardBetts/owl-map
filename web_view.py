@@ -271,6 +271,10 @@ def old_search_page():
 def read_bounds_param():
     return [float(i) for i in request.args["bounds"].split(",")]
 
+def read_isa_filter_param():
+    isa_param = request.args.get('isa')
+    if isa_param:
+        return set(qid.strip() for qid in isa_param.upper().split(','))
 
 @app.route("/api/1/location")
 def show_user_location():
@@ -280,10 +284,20 @@ def show_user_location():
 @app.route("/api/1/count")
 def api_wikidata_items_count():
     t0 = time()
-    count = api.wikidata_items_count(read_bounds_param())
+    isa_filter = read_isa_filter_param()
+    count = api.wikidata_items_count(read_bounds_param(), isa_filter=isa_filter)
 
     t1 = time() - t0
     return cors_jsonify(success=True, count=count, duration=t1)
+
+@app.route("/api/1/isa_search")
+def api_isa_search():
+    t0 = time()
+    search_terms = request.args.get("q")
+    items = api.isa_incremental_search(search_terms)
+    t1 = time() - t0
+
+    return cors_jsonify(success=True, items=items, duration=t1)
 
 
 @app.route("/api/1/isa")
@@ -291,7 +305,9 @@ def api_wikidata_isa_counts():
     t0 = time()
 
     bounds = read_bounds_param()
-    isa_count = api.wikidata_isa_counts(bounds)
+    isa_filter = read_isa_filter_param()
+
+    isa_count = api.wikidata_isa_counts(bounds, isa_filter=isa_filter)
 
     t1 = time() - t0
     return cors_jsonify(success=True, isa_count=isa_count, bounds=bounds, duration=t1)
@@ -302,7 +318,9 @@ def api_wikidata_items():
     t0 = time()
 
     bounds = read_bounds_param()
-    ret = api.wikidata_items(bounds)
+    isa_filter = read_isa_filter_param()
+
+    ret = api.wikidata_items(bounds, isa_filter=isa_filter)
 
     t1 = time() - t0
     return cors_jsonify(success=True, duration=t1, **ret)
@@ -311,7 +329,8 @@ def api_wikidata_items():
 @app.route("/api/1/osm")
 def api_osm_objects():
     t0 = time()
-    objects = api.get_osm_with_wikidata_tag(read_bounds_param())
+    isa_filter = read_isa_filter_param()
+    objects = api.get_osm_with_wikidata_tag(read_bounds_param(), isa_filter=isa_filter)
     t1 = time() - t0
     return cors_jsonify(success=True, objects=objects, duration=t1)
 

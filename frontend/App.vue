@@ -233,6 +233,7 @@
             </div>
             <div class="col-12">
               <button type="submit" id="search-btn" class="btn btn-primary">search</button>
+
             </div>
           </form>
           <p v-if="recent_search" class="card-text mt-2">Searching for '{{ recent_search }}', found {{ hits.length }} places.</p>
@@ -255,6 +256,39 @@
             <span v-else>
               Click a result to continue.
             </span>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="type-filter" v-model="show_item_type_filter">
+            <label class="form-check-label" for="type-filter">item type filter</label>
+          </div>
+
+          <div class="card" v-if="show_item_type_filter">
+            <div class="card-body">
+              <h5 class="card-title">item type filters</h5>
+              <input class="form-control" v-model.trim="item_type_search" placeholder="item type">
+
+              <div class="list-group" v-if="item_type_hits.length">
+                <a class="list-group-item"
+                    v-bind:key="isa.qid"
+                    v-for="isa in item_type_hits"
+                    href="#"
+                    @click.prevent="item_type_filters.includes(isa) || item_type_filters.push(isa)"
+                    >
+                  {{ isa.label }} ({{ isa.qid }})
+                </a>
+              </div>
+
+              <h6>current item type filters</h6>
+              <div class="list-group" v-if="item_type_filters.length">
+                <a class="list-group-item" v-bind:key="isa.qid" v-for="(isa, index) in item_type_filters" href="#">
+                  {{ isa.label }} ({{ isa.qid }})
+                  <button type="button"
+                      class="btn btn-danger btn-sm"
+                      @click="item_type_filters.splice(index, 1)">remove</button>
+                </a>
+              </div>
+              <div v-else>no item type filters</div>
+            </div>
           </div>
         </div>
       </div>
@@ -670,6 +704,10 @@ export default {
       mode: undefined,
       current_hit: undefined,
       recent_search: undefined,
+      show_item_type_filter: false,
+      item_type_search: undefined,
+      item_type_hits: [],
+      item_type_filters: [],
     };
   },
   computed: {
@@ -681,7 +719,7 @@ export default {
               && !this.current_item);
     },
     area_too_big() {
-      return this.map_area > 1000 * 1000 * 1000;
+      return !this.item_type_filters.length && this.map_area > 1000 * 1000 * 1000;
     },
     too_many_items() {
       return this.item_count > 1400;
@@ -759,6 +797,19 @@ export default {
   watch: {
     edits(edit_list) {
       this.update_unload_warning(edit_list);
+    },
+    item_type_search(value) {
+      if (value.length < 3) {
+        this.item_type_hits = [];
+        return;
+      }
+
+      var params = { q: value };
+      var isa_search_url = `${this.api_base_url}/api/1/isa_search`;
+
+      axios.get(isa_search_url, { params: params }).then((response) => {
+        this.item_type_hits = response.data.items;
+      });
     },
     selected_items(new_items, old_items) {
       for (const qid of Object.keys(new_items)) {
@@ -1283,11 +1334,17 @@ export default {
 
       var params = { bounds: bounds.toBBoxString() };
 
+      if (this.item_type_filters.length) {
+        params["isa"] = this.item_type_filters.map(isa => isa.qid).join(",");
+      }
+
       axios.get(items_url, { params: params }).then((response) => {
         this.clear_isa();
         this.isa_list = response.data.isa_count;
         this.isa_list.forEach(isa => {
-          if (this.detail_qid) this.isa_ticked.push(isa.qid);
+          if (this.detail_qid || this.item_type_filters.length) {
+            this.isa_ticked.push(isa.qid);
+          }
           this.isa_labels[isa.qid] = isa.label;
           this.isa_lookup[isa.qid] = isa;
         });
@@ -1329,6 +1386,14 @@ export default {
         return;
       }
       var params = { bounds: bounds.toBBoxString() };
+
+      console.log(this.item_type_filters.length);
+
+      if (this.item_type_filters.length) {
+        params["isa"] = this.item_type_filters.map(isa => isa.qid).join(",");
+        console.log(params.isa);
+      }
+
       axios.get(count_url, { params: params }).then((response) => {
         this.item_count = response.data.count;
         if (!this.too_many_items) this.load_wikidata_items(bounds);
@@ -1390,7 +1455,9 @@ export default {
           if (this.isa_lookup[isa.qid] === undefined) {
             this.isa_lookup[isa.qid] = isa;
             this.isa_list.push(isa);
-            if (this.detail_qid) this.isa_ticked.push(isa.qid);
+            if (this.detail_qid || this.item_type_filters.length) {
+              this.isa_ticked.push(isa.qid);
+            }
           } else {
             this.isa_lookup[isa.qid].count += 1;
           }
