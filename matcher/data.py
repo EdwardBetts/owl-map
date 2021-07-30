@@ -64,7 +64,8 @@ extra_keys = {
                'Tag:leisure=sports_centre'],    # gymnasium
     'Q27686': ['Tag:tourism=hostel',            # hotel
                'Tag:tourism=guest_house',
-               'Tag:building=hotel'],
+               'Tag:building=hotel',
+               'Tag:landuse=residential'],
     'Q11707': ['Tag:amenity=cafe', 'Tag:amenity=fast_food',
                'Tag:shop=deli', 'Tag:shop=bakery',
                'Key:cuisine'],                  # restaurant
