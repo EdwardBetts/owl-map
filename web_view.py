@@ -558,6 +558,7 @@ def oauth_callback():
             img=info['img'],
             osm_id=info['id'],
             osm_account_created=info['account_created'],
+            mock_upload=False,
         )
         database.session.add(user)
     database.session.commit()
