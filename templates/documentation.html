@@ -35,7 +35,7 @@
   <h4>Map filters</h4>
 
   <dd>
-    <dt>OSM/Wikidata link status numbers don't match current view</dt>
+    <dt>OSM/Wikidata link status numbers do not match current view</dt>
     <dd>
       <p>The item type counts update to only include items in the current view.
       The OSM/Wikidata link status should do the same, but don't currently.</p>
@@ -47,21 +47,20 @@
       should be three states: <i>include</i>, <i>exclude</i> and
       <i>neutral</i>.</p>
 
-      <p>Some items in Wikidata are for things that no longer exist. If
-      something doesn't exist it won't be include in OpenStreetMap, so there is
-      nothing to match with. A good example are cinemas, somebody
-      has loaded a historical database of cinemas into Wikidata, many of them
-      no longer exist. On Wikidata they have the item types <i>movie theater
-        (Q41253)</i> and <i>destroyed building or structure (Q19860854)</i>.
+      <p>There are items in Wikidata are for buildings that no longer exist.
+      Demolished buildings are not normally included in OpenStreetMap, so there is nothing to match with.
+      A good example are cinemas, a historical database of cinemas has been loaded into Wikidata, many of them no longer exist.
+      On Wikidata they have the item types <a href="https://www.wikidata.org/wiki/Q41253">movie theater (Q41253)</a> and
+      <a href="https://www.wikidata.org/wiki/Q19860854">destroyed building or structure (Q19860854)</a>.
       There is no way with the existing filters to say show me cinemas unless
-      they have the type <i>destroyed building or structure (Q19860854)</i>.
+      they have the type <a href="https://www.wikidata.org/wiki/Q19860854">destroyed building or structure (Q19860854)</a>.
       </p>
     </dd>
     </dl>
 
   <h4>Item detail page</h4>
 
-  <p>Image doesn't update until the list of nearby OSM matches has been downloaded.</p>
+  <p>Image on the item detail page is not updated until the list of nearby OSM matches has been downloaded.</p>
 
   <h4>List of nearby possible OSM matches</h4>
 
