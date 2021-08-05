@@ -722,7 +722,7 @@ export default {
       return !this.item_type_filters.length && this.map_area > 1000 * 1000 * 1000;
     },
     too_many_items() {
-      return this.item_count > 1400;
+      return this.item_count > 600;
     },
     loading() {
       return this.osm_loading || this.wikidata_loading;
