@@ -1342,9 +1342,10 @@ export default {
         this.clear_isa();
         this.isa_list = response.data.isa_count;
         this.isa_list.forEach(isa => {
-          if (this.detail_qid || this.item_type_filters.length) {
+          this.isa_ticked.push(isa.qid);
+          /* if (this.detail_qid || this.item_type_filters.length) {
             this.isa_ticked.push(isa.qid);
-          }
+          } */
           this.isa_labels[isa.qid] = isa.label;
           this.isa_lookup[isa.qid] = isa;
         });
@@ -1455,9 +1456,10 @@ export default {
           if (this.isa_lookup[isa.qid] === undefined) {
             this.isa_lookup[isa.qid] = isa;
             this.isa_list.push(isa);
-            if (this.detail_qid || this.item_type_filters.length) {
+            this.isa_ticked.push(isa.qid);
+            /* if (this.detail_qid || this.item_type_filters.length) {
               this.isa_ticked.push(isa.qid);
-            }
+            } */
           } else {
             this.isa_lookup[isa.qid].count += 1;
           }
