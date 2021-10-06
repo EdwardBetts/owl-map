@@ -408,7 +408,8 @@
           <button type="button" class="btn-close float-end" id="close-detail" @click="close_item()"></button>
         </div>
         <div id="detail">
-          <div class="row"><div class="col">
+          <div class="row"><div class="col-xl-6">
+
           <strong>Wikidata item</strong><br>
           <a :href="qid_url(wd_item.qid)" target="_blank">{{ wd_item.label }}</a> ({{ wd_item.qid }})
 
@@ -432,7 +433,7 @@
           </span>
 
           </div>
-          <div class="col">
+          <div class="col-xl-6">
 
           <div v-if="current_item.tag_or_key_list && current_item.tag_or_key_list.length">
             <strong>OSM tags/keys to search for</strong><br/>
