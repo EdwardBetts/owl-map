@@ -573,8 +573,14 @@
                     <br>part of:
                     <span v-for="(part_of, part_of_index) in osm.part_of">
                       <span v-if="part_of_index != 0">, </span>
-                      {{ part_of.tags.name }}
+
+                    <a
+                      :href="`https://www.openstreetmap.org/${part_of.type}/${part_of.id}`"
+                      target="_blank"
+                      @click.stop>
+                      {{ part_of.tags.name }} <i class="fa fa-map-o"></i></a>
                     </span>
+
                 </span>
 
                 <span v-if="osm.tags.ele">
