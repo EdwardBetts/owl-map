@@ -405,6 +405,11 @@
       <div class="card-body">
         <div class="h4 card-title">
           <span id="detail-header">item detail</span>
+
+          <button class="btn btn-primary btn-sm ms-2" @click="zoom_to_selected_marker()">
+            <i class="fa fa-search-plus"></i> zoom in on item
+          </button>
+
           <button type="button" class="btn-close float-end" id="close-detail" @click="close_item()"></button>
         </div>
         <div id="detail">
@@ -434,6 +439,10 @@
 
           </div>
           <div class="col-xl-6">
+
+          <div v-if="bounds_before_open" class="alert alert-info">
+            <i class="fa fa-info-circle"></i> Close item to zoom out.
+          </div>
 
           <div v-if="current_item.tag_or_key_list && current_item.tag_or_key_list.length">
             <strong>OSM tags/keys to search for</strong><br/>
@@ -710,6 +719,10 @@ export default {
       item_type_search: undefined,
       item_type_hits: [],
       item_type_filters: [],
+      bounds_before_open: undefined,
+      bounds_done: [],
+      zoom_on_open: false,
+      selected_marker: undefined,
     };
   },
   computed: {
@@ -1081,7 +1094,7 @@ export default {
     mouse_events(marker, qid) {
       marker.on("mouseover", () => { this.add_highlight(qid); });
       marker.on("mouseout", () => { this.drop_highlight(qid); });
-      marker.on("click", () => { this.open_item(qid); });
+      marker.on("click", () => { this.open_item(qid, marker); });
 
       var item = this.items[qid];
 
@@ -1170,10 +1183,17 @@ export default {
       var state = this.current_state();
       history.replaceState(state, '', this.build_map_path());
     },
-    open_item(qid) {
+    open_item(qid, marker) {
       this.close_edit_list();
 
       var item = this.items[qid];
+      if (marker) {
+        this.selected_marker = marker;
+      } else {
+        marker = item.markers[0].marker;
+        this.selected_marker = undefined;
+      }
+
       if (this.current_item == item) return; // already open
       this.current_osm = undefined;
       this.current_item = item;
@@ -1206,7 +1226,24 @@ export default {
             osm.selected = !osm.selected;
           }
         });
+
+        if (response.data.nearby.length) {
+          if (this.zoom_on_open) {
+            if (!this.bounds_before_open) {
+              this.bounds_before_open = this.map.getBounds();
+            }
+            this.map.flyTo(marker.getLatLng(), 18);
+          }
+        }
+
       });
+    },
+    zoom_to_selected_marker() {
+      var marker = this.selected_marker || this.current_item.markers[0];
+      if (!this.bounds_before_open) {
+        this.bounds_before_open = this.map.getBounds();
+      }
+      this.map.flyTo(marker.getLatLng(), 18);
     },
     item_has_edit(item) {
       if (this.edits.length == 0) return false;
@@ -1215,7 +1252,12 @@ export default {
     close_item() {
       this.current_osm = undefined;
       this.current_item = undefined;
+      this.selected_marker = undefined;
       this.update_map_path();
+      if (this.bounds_before_open) {
+        this.map.flyToBounds(this.bounds_before_open);
+        this.bounds_before_open = undefined;
+      }
     },
     qid_url(qid) {
       return "https://www.wikidata.org/wiki/" + qid;
@@ -1475,7 +1517,7 @@ export default {
     },
     start_item() {
       if (!this.detail_qid) return;
-      this.open_item(this.detail_qid);
+      this.open_item(this.detail_qid, null);
       this.detail_qid = undefined;
     },
     update_wikidata() {
