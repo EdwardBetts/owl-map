@@ -412,7 +412,13 @@ def api_find_osm_candidates(item_id):
                                          max_distance=1_000)
 
     t1 = time() - t0
-    return cors_jsonify(success=True, qid=item.qid, nearby=nearby, duration=t1)
+    return cors_jsonify(
+        success=True,
+        qid=item.qid,
+        nearby=nearby,
+        duration=t1,
+        max_distance=max_distance
+    )
 
 
 @app.route("/api/1/missing")
