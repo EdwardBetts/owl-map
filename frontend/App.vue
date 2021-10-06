@@ -442,7 +442,13 @@
             <br>{{wd_item.closed.join('; ')}}
           </span>
 
+          <span v-if="wd_item.heritage_designation.length">
+            <br><strong>heritage designation</strong>
+            <br>{{ wd_item.heritage_designation.join("; ") }}
+          </span>
+
           </div>
+
           <div class="col-xl-6">
 
           <div v-if="bounds_before_open" class="alert alert-info">
