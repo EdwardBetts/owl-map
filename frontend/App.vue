@@ -422,6 +422,11 @@
             <br><strong>description</strong><br>{{ wd_item.description }}
           </span>
 
+          <span v-if="wd_item.aliases !== undefined && wd_item.aliases.length">
+            <br><strong>aliases</strong>
+            <br>{{ wd_item.aliases.join("; ") }}
+          </span>
+
           <br><strong>item type</strong>
           <span v-bind:key="`isa-${wd_item.qid}-${isa_qid}`" v-for="isa_qid in wd_item.isa_list">
             <br><a :href="qid_url(isa_qid)" target="_blank">{{isa_labels[isa_qid]}}</a> ({{isa_qid}})
