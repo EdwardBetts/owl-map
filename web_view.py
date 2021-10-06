@@ -423,6 +423,7 @@ def api_find_osm_candidates(item_id):
 
 @app.route("/api/1/missing")
 def api_missing_wikidata_items():
+    t0 = time()
     qids_arg = request.args.get("qids")
     if not qids_arg:
         return cors_jsonify(success=False,
@@ -443,7 +444,11 @@ def api_missing_wikidata_items():
     lat, lon = request.args.get("lat"), request.args.get("lon")
 
     ret = api.missing_wikidata_items(qids, lat, lon)
-    return cors_jsonify(success=True, **ret)
+    t1 = time() - t0
+    return cors_jsonify(
+        success=True,
+        duration=t1,
+        **ret)
 
 
 @app.route("/api/1/search")
