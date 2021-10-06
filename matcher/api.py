@@ -648,6 +648,9 @@ def item_detail(item):
 
     street_address = get_item_street_addresses(item)
 
+    heritage_designation = [get_item(v["numeric-id"]).label()
+                            for v in item.get_claim("P1435")]
+
     d = {
         "qid": item.qid,
         "label": item.label(),
@@ -657,6 +660,7 @@ def item_detail(item):
         "street_address": street_address,
         "isa_list": item.get_isa_qids(),
         "closed": item.closed(),
+        "heritage_designation": heritage_designation,
     }
 
     if aliases := item.get_aliases():
