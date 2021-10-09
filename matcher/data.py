@@ -188,6 +188,7 @@ extra_keys = {
     'Q742421': ['Tag:amenity=theatre'],         # theatrical troupe
     'Q962715': ['Key:building'],                # gas holder
     'Q52063214': ['Tag:boundary=national_park'],  # provincial park
+    'Q47509284': ['Tag:landuse=brownfield'],    # assembly plant
 }
 
 property_map = [
