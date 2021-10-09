@@ -181,6 +181,13 @@ extra_keys = {
                 'Tag:amenity=library'],         # archive
     'Q486972': ['Key:place'],                   # human settlement
     'Q42948': ['Key:barrier'],                  # wall
+    'Q939644': ['Tag:historic=memorial'],       # high cross
+    'Q2046310': ['Tag:historic=archaeological_site'],  # bowl barrow
+    'Q2046325': ['Tag:historic=archaeological_site'],  # round barrow
+    'Q472577': ['Tag:shop=mall'],  # retail park
+    'Q742421': ['Tag:amenity=theatre'],         # theatrical troupe
+    'Q962715': ['Key:building'],                # gas holder
+    'Q52063214': ['Tag:boundary=national_park'],  # provincial park
 }
 
 property_map = [
