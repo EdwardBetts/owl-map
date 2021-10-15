@@ -6,7 +6,6 @@ from sqlalchemy.types import Float
 from sqlalchemy.dialects import postgresql
 from matcher.planet import point, line, polygon
 from matcher import model, database, wikidata_api, wikidata
-from matcher.data import extra_keys
 from collections import Counter, defaultdict
 from flask import g, current_app
 import re
@@ -17,6 +16,15 @@ srid = 4326
 re_point = re.compile(r'^POINT\((.+) (.+)\)$')
 entity_keys = {"labels", "sitelinks", "aliases", "claims", "descriptions", "lastrevid"}
 
+tag_prefixes = {
+    "disused",
+    "was",
+    "abandoned",
+    "demolished",
+    "destroyed",
+    "ruins",
+    "historic",
+}
 
 def get_country_iso3166_1(lat, lon):
     point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), srid)
@@ -110,6 +118,8 @@ def get_and_save_item(qid):
         item = model.Item.query.get(entity_qid[1:])
         return item
 
+    if "claims" not in entity:
+        return
     coords = wikidata.get_entity_coords(entity["claims"])
 
     item_id = int(qid[1:])
@@ -196,6 +206,17 @@ WHERE tags ? 'wikidata'
     conn = database.session.connection()
     result = conn.execute(text(sql))
 
+    print(sql)
+
+    point_sql = f'''
+    SELECT 'point' as tbl, osm_id, tags, ST_AsText(ST_Centroid(way)) as centroid, ST_AsGeoJSON(way) as geojson
+    FROM planet_osm_point
+    WHERE ST_Intersects(ST_MakeEnvelope({bbox_str}, {srid}), way) and tags ? 'wikidata'
+''' + extra_sql
+
+    print("point")
+    print(point_sql)
+
     tagged = []
     for tbl, osm_id, tags, centroid, geojson in result:
         if tbl == 'point':
@@ -233,22 +254,34 @@ def get_items(item_ids):
 
 
 def get_item_tags(item):
-    skip_tags = {"Key:addr", "Key:addr:street", "Key:lit"}
+    skip_tags = {
+        "Key:addr",
+        "Key:addr:street",
+        "Key:lit",
+        "Key:image",
+        "Key:name",
+        "Key:symbol",
+        "Key:brand",
+    }
 
     isa_items = []
-    isa_list = [v["numeric-id"] for v in item.get_claim("P31")]
+    isa_list = [v["numeric-id"] for v in item.get_isa()]
     isa_items = [(isa, []) for isa in get_items(isa_list)]
 
     osm_list = defaultdict(list)
 
     skip_isa = {row[0] for row in database.session.query(model.SkipIsA.item_id)}
-    if item.is_tram_stop():
+
+    tram_stop_id = 41176
+    airport_id = 1248784
+    aerodrome_id = 62447
+    if {tram_stop_id, airport_id, aerodrome_id} & set(isa_list):
         skip_isa.add(41176)  # building (Q41176)
 
     seen = set(isa_list) | skip_isa
     stop = {
         "Q11799049",  # public institution
-        "Q7075", # library
+        "Q7075",  # library
     }
     while isa_items:
         isa, isa_path = isa_items.pop()
@@ -256,8 +289,9 @@ def get_item_tags(item):
             continue
         isa_path = isa_path + [{'qid': isa.qid, 'label': isa.label()}]
         osm = [v for v in isa.get_claim("P1282") if v not in skip_tags]
-        if isa.qid in extra_keys:
-            osm += extra_keys[isa.qid]
+
+        osm += [extra.tag_or_key
+                for extra in model.ItemExtraKeys.query.filter_by(item_id=isa.item_id)]
 
         for i in osm:
             osm_list[i].append(isa_path[:])
@@ -306,7 +340,7 @@ def wikidata_items_count(bounds, isa_filter=None):
     if isa_filter:
         q = add_isa_filter(q, isa_filter)
 
-    print(q.statement.compile(compile_kwargs={"literal_binds": True}))
+    # print(q.statement.compile(compile_kwargs={"literal_binds": True}))
 
     return q.count()
 
@@ -345,11 +379,16 @@ def get_tag_filter(tags, tag_list):
     tag_filter = []
     for tag_or_key in tag_list:
         if tag_or_key.startswith("Key:"):
-            tag_filter.append(and_(tags.has_key(tag_or_key[4:]),
-                                   tags[tag_or_key[4:]] != 'no'))
+            key = tag_or_key[4:]
+            tag_filter.append(and_(tags.has_key(key), tags[key] != 'no'))
+            for prefix in tag_prefixes:
+                tag_filter.append(tags.has_key(f"{prefix}:{key}"))
+
         if tag_or_key.startswith("Tag:"):
-            k, _, v = tag_or_key.partition("=")
-            tag_filter.append(tags[k[4:]] == v)
+            k, _, v = tag_or_key[4:].partition("=")
+            tag_filter.append(tags[k] == v)
+            for prefix in tag_prefixes:
+                tag_filter.append(tags[f"{prefix}:{k}"] == v)
 
     return tag_filter
 
@@ -367,10 +406,18 @@ def get_preset_translations():
     translation_dir = os.path.join(ts_dir, "dist", "translations")
 
     for code in g.alpha2_codes:
-        if code not in country_language:
+        lang_code = country_language.get("code")
+        if not lang_code:
             continue
-        filename = os.path.join(translation_dir, country_language[code] + ".json")
-        return json.load(open(filename))["en-GB"]["presets"]["presets"]
+        filename = os.path.join(translation_dir, lang_code + ".json")
+        json_data = json.load(open(filename))
+        if lang_code not in json_data:
+            continue
+
+        try:
+            return json_data[lang_code]["presets"]["presets"]
+        except KeyError:
+            pass
 
     return {}
 
@@ -479,10 +526,10 @@ def osm_display_name(tags):
 def street_address_in_tags(tags):
     return "addr:housenumber" in tags and "addr:street" in tags
 
-def find_osm_candidates(item, limit=60, max_distance=400, names=None):
+def find_osm_candidates(item, limit=80, max_distance=450, names=None):
     item_id = item.item_id
+    item_is_linear_feature = item.is_linear_feature()
     item_is_street = item.is_street()
-    print("is street:", item_is_street)
 
     check_is_street_number_first(item.locations[0].get_lat_lon())
 
@@ -494,8 +541,10 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
     tags = column('tags', postgresql.HSTORE)
 
     tag_list = get_item_tags(item)
+    # tag_filters = get_tag_filter(point.c.tags, tag_list)
+    # print(tag_filters)
 
-    s_point = (select([literal('point'), point.c.osm_id, point.c.tags.label('tags'),
+    s_point = (select([literal('point').label('t'), point.c.osm_id, point.c.tags.label('tags'),
                        func.min(func.ST_DistanceSphere(model.ItemLocation.location, point.c.way)).label('dist'),
                        func.ST_AsText(point.c.way),
                        func.ST_AsGeoJSON(point.c.way),
@@ -507,7 +556,7 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
                           or_(*get_tag_filter(point.c.tags, tag_list)))).
                group_by(point.c.osm_id, point.c.tags, point.c.way))
 
-    s_line = (select([literal('line'), line.c.osm_id, line.c.tags.label('tags'),
+    s_line = (select([literal('line').label('t'), line.c.osm_id, line.c.tags.label('tags'),
                          func.min(func.ST_DistanceSphere(model.ItemLocation.location, line.c.way)).label('dist'),
                          func.ST_AsText(func.ST_Centroid(func.ST_Collect(line.c.way))),
                          func.ST_AsGeoJSON(func.ST_Collect(line.c.way)),
@@ -518,7 +567,7 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
                      or_(*get_tag_filter(line.c.tags, tag_list)))).
                group_by(line.c.osm_id, line.c.tags))
 
-    s_polygon = (select([literal('polygon'), polygon.c.osm_id, polygon.c.tags.label('tags'),
+    s_polygon = (select([literal('polygon').label('t'), polygon.c.osm_id, polygon.c.tags.label('tags'),
                          func.min(func.ST_DistanceSphere(model.ItemLocation.location, polygon.c.way)).label('dist'),
                          func.ST_AsText(func.ST_Centroid(func.ST_Collect(polygon.c.way))),
                          func.ST_AsGeoJSON(func.ST_Collect(polygon.c.way)),
@@ -530,11 +579,11 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
                group_by(polygon.c.osm_id, polygon.c.tags).
                having(func.ST_Area(func.ST_Collect(polygon.c.way)) < 20 * func.ST_Area(bbox_list[0])))
 
-    tables = ([] if item_is_street else [s_point]) + [s_line, s_polygon]
+    tables = ([] if item_is_linear_feature else [s_point]) + [s_line, s_polygon]
     s = select([union(*tables).alias()]).where(dist < max_distance).order_by(dist)
 
     if names:
-        s = s.where(tags["name"].in_(names))
+        s = s.where(or_(tags["name"].in_(names), tags["old_name"].in_(names)))
 
     if item_is_street:
         s = s.where(tags["highway"] != "bus_stop")
@@ -550,7 +599,7 @@ def find_osm_candidates(item, limit=60, max_distance=400, names=None):
     if limit:
         s = s.limit(limit)
 
-    # print(s.compile(compile_kwargs={"literal_binds": True}))
+    print(s.compile(compile_kwargs={"literal_binds": True}))
 
     conn = database.session.connection()
     nearby = []
@@ -648,8 +697,16 @@ def item_detail(item):
 
     street_address = get_item_street_addresses(item)
 
-    heritage_designation = [get_item(v["numeric-id"]).label()
-                            for v in item.get_claim("P1435")]
+    heritage_designation = []
+    for v in item.get_claim("P1435"):
+        if not v:
+            print('heritage designation missing:', item.qid)
+            continue
+        heritage_designation_item = get_item(v["numeric-id"])
+        heritage_designation.append({
+            "qid": v["id"],
+            "label": heritage_designation_item.label(),
+        })
 
     d = {
         "qid": item.qid,
@@ -658,7 +715,11 @@ def item_detail(item):
         "markers": locations,
         "image_list": image_filenames,
         "street_address": street_address,
-        "isa_list": item.get_isa_qids(),
+        # "isa_list": item.get_isa_qids(),
+        "isa_list": [
+            {"qid": isa["id"], "label": get_item(isa["numeric-id"]).label()}
+            for isa in item.get_isa()
+        ],
         "closed": item.closed(),
         "heritage_designation": heritage_designation,
     }
@@ -745,6 +806,8 @@ def isa_incremental_search(search_terms):
             en_label.ilike(f"%{search_terms}%"),
             func.length(en_label) < 20,
     )
+
+    print(q.statement.compile(compile_kwargs={"literal_binds": True}))
 
     ret = []
     for item in q:
