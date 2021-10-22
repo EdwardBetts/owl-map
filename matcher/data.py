@@ -20,7 +20,7 @@ extra_keys = {
     'Q38723': edu,                              # higher education institution
     'Q11303': tall,                             # skyscraper
     'Q18142': tall,                             # high-rise building
-    'Q33673393': tall,                          # multi-storey building
+    'Q11755959': tall,                          # multi-storey building
     'Q641226': ['Tag:leisure=stadium'],         # arena
     'Q2301048': ['Tag:aeroway=helipad'],        # special airfield
     'Q622425': ['Tag:amenity=pub',
@@ -108,8 +108,8 @@ extra_keys = {
     'Q1076486': ['Tag:landuse=recreation_ground'],  # sports venue
     'Q988108': ['Tag:amenity=community_centre',  # club
                 'Tag:community_centre=club_home'],
-    'Q55004558': ['Tag:service=yard',
-                  'Tag:landuse=railway'],       # car barn
+    'Q27028153': ['Tag:service=yard',
+                  'Tag:landuse=railway'],       # tram depot
     'Q19563580': ['Tag:landuse=railway'],       # rail yard
     'Q134447': ['Tag:generator:source=nuclear'],  # nuclear power plant
     'Q1258086': ['Tag:leisure=park',
@@ -189,6 +189,8 @@ extra_keys = {
     'Q962715': ['Key:building'],                # gas holder
     'Q52063214': ['Tag:boundary=national_park'],  # provincial park
     'Q47509284': ['Tag:landuse=brownfield'],    # assembly plant
+    'Q15893266': ['Tag:landuse=brownfield'],    # former entity
+    'Q43501': ['Tag:landuse=brownfield'],       # zoo
 }
 
 property_map = [
