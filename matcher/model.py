@@ -159,16 +159,40 @@ class Item(Base):
         return isa_list
 
     def get_isa_qids(self):
-        return [v["id"] for v in self.get_claim("P31") if v]
+        return [isa["id"] for isa in self.get_isa()]
 
-    def is_street(self):
-        street_items = {
-            'Q34442',  # road
-            'Q79007',  # street
-            'Q83620',  # thoroughfare
-            'Q21000333',  # shopping street
+    def is_street(self, isa_qids=None):
+        if isa_qids is None:
+            isa_qids = self.get_isa_qids()
+
+        matching_types = {
+            "Q12731",     # dead end street
+            "Q34442",     # road
+            "Q79007",     # street
+            "Q83620",     # thoroughfare
+            "Q21000333",  # shopping street
+            "Q62685721",  # pedestrian street
         }
-        return bool(street_items & set(self.get_isa_qids()))
+        return bool(matching_types & set(isa_qids))
+
+    def is_watercourse(self, isa_qids=None):
+        if isa_qids is None:
+            isa_qids = self.get_isa_qids()
+        matching_types = {
+            "Q355304",    # watercourse
+            "Q4022",      # river
+            "Q47521",     # stream
+            "Q1437299",   # creek
+            "Q63565252",  # brook
+            "Q12284",     # canal
+            "Q55659167",  # natural watercourse
+
+        }
+        return bool(matching_types & set(isa_qids))
+
+    def is_linear_feature(self):
+        isa_qids = set(self.get_isa_qids())
+        return self.is_street(isa_qids) or self.is_watercourse(isa_qids)
 
     def is_tram_stop(self):
         return 'Q2175765' in self.get_isa_qids()
