@@ -458,23 +458,33 @@ def api_find_osm_candidates(item_id):
                             qid=f'Q{item_id}',
                             error="item doesn't exist")
 
+    if not item.locations:
+        return cors_jsonify(success=True,
+                            qid=f'Q{item_id}',
+                            error="item has no coordinates")
+
     label = item.label()
     item_is_street = item.is_street()
+    item_is_watercourse = item.is_watercourse()
 
     if item_is_street:
-        max_distance = 2_000
+        max_distance = 5_000
         limit = None
-        names = expand_street_name(label)
+        names = expand_street_name([label] + item.get_aliases())
+    elif item_is_watercourse:
+        max_distance = 20_000
+        limit = None
+        names = {label}
     else:
-        max_distance = 400
-        limit = 60
+        max_distance = 1_000
+        limit = 40
         names = None
     nearby = api.find_osm_candidates(item,
                                      limit=limit,
                                      max_distance=max_distance,
                                      names=names)
 
-    if item_is_street and not nearby:
+    if (item_is_street or item_is_watercourse) and not nearby:
         # nearby = [osm for osm in nearby if street_name_match(label, osm)]
 
         # try again without name filter
