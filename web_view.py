@@ -430,20 +430,22 @@ def api_get_item_tags(item_id):
                         duration=t1)
 
 
-def expand_street_name(name):
-    ret = {name}
-    if any(name.startswith(st) for st in ('St ', 'St. ')):
-        first_space = name.find(' ')
-        ret.add("Saint" + name[first_space:])
+def expand_street_name(from_names):
+    ret = set(from_names)
+    for name in from_names:
+        if any(name.startswith(st) for st in ('St ', 'St. ')):
+            first_space = name.find(' ')
+            ret.add("Saint" + name[first_space:])
 
-    if ', ' in name:
-        for n in set(ret):
-            comma = n.find(", ")
-            ret.add(name[:comma])
-    elif '/' in name:
-        for n in set(ret):
-            ret.extend(part.strip() for part in n.split("/"))
+        if ', ' in name:
+            for n in set(ret):
+                comma = n.find(", ")
+                ret.add(name[:comma])
+        elif '/' in name:
+            for n in set(ret):
+                ret.extend(part.strip() for part in n.split("/"))
 
+    ret.update({"The " + name for name in ret if not name.startswith("The ")})
     return ret
 
 
