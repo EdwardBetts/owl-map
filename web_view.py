@@ -128,6 +128,44 @@ def redirect_from_root():
 def index_page():
     return render_template("index.html")
 
+
+def get_username():
+    user = flask_login.current_user
+    if user.is_authenticated:
+        return user.username
+
+
+@app.route("/isa/Q<int:item_id>", methods=["GET", "POST"])
+def isa_page(item_id):
+    item = api.get_item(item_id)
+
+    if request.method == "POST":
+        return redirect(url_for(request.endpoint, item_id=item_id))
+
+    q = model.ItemExtraKeys.query.filter_by(item=item)
+    extra = [e.tag_or_key for e in q]
+    subclass_property = "P279"
+
+    subclass_list = []
+    for s in item.get_claim(subclass_property):
+        subclass = api.get_item(s["numeric-id"])
+        subclass_list.append({
+            "qid": s["id"],
+            "item_id": s["numeric-id"],
+            "label": subclass.label(),
+            "description": subclass.description(),
+            "isa_page_url": url_for("isa_page", item_id=s["numeric-id"]),
+        })
+
+    return render_template(
+        "isa.html",
+        item=item,
+        extra=extra,
+        subclass_list=subclass_list,
+        username=get_username()
+    )
+
+
 @app.route("/admin/skip_isa")
 def admin_skip_isa_list():
     q = model.Item.query.join(model.SkipIsA).order_by(model.Item.item_id)
@@ -254,8 +292,8 @@ def map_location(zoom, lat, lon):
         zoom=zoom,
         lat=lat,
         lon=lon,
-        radius=request.args.get('radius'),
-        username=username,
+        radius=request.args.get("radius"),
+        username=get_username(),
         mode="map",
         q=None,
     )

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.label() }} ({{ item.qid }}) {% endblock %}
+
+{% block content %}
+<div class="container my-2">
+
+  <h1>{{ self.title() }}</h1>
+
+  <div><a href="https://www.wikidata.org/wiki/{{ item.qid }}">
+      view on Wikidata
+      <i class="fa fa-external-link"></i>
+  </a></div>
+
+  <div class="my-2">
+  <form method="POST">
+    <input type="hidden" name="action" value="refresh">
+    <input type="submit" value="refresh item" class="btn btn-sm btn-primary">
+  </form>
+  </div>
+
+  {% set description = item.description() %}
+  {% set aliases = item.get_aliases() %}
+  {% set osm_tag_list = item.get_claim("P1282") %}
+
+  <div class="my-3">
+  {% if description %}
+    <strong>description</strong>:
+    {{ description }}<br>
+  {% endif %}
+
+  {% if aliases %}
+    <strong>aliases</strong>:
+    {{ aliases | join("; ") }}
+  {% endif %}
+  </div>
+
+  <h4>subclass of</h4>
+  <div class="mb-3">
+  {% if subclass_list %}
+    {% for subclass in subclass_list %}
+      <a href="{{ subclass.isa_page_url }}">{{ subclass.label }}</a>
+      ({{ subclass.qid }})
+      &ndash; {{ subclass.description }}
+      <br>
+    {% endfor %}
+  {% else %}
+    <p>no subclasses</p>
+  {% endif %}
+  </div>
+
+  <h4>OpenStreetMap tags/keys from Wikidata</h4>
+  {% if osm_tag_list %}
+    <ul>
+    {% for tag_or_key in osm_tag_list %}
+      <li>{{ tag_or_key }}</li>
+    {% endfor %}
+    </ul>
+  {% else %}
+    <p>no tags/keys from Wikidata</p>
+  {% endif %}
+
+  <h4>extra OpenStreetMap tags/keys</h4>
+
+  {% if extra %}
+    <ul>
+      {% for tag_or_key in extra %}
+        <li>{{ tag_or_key }} <a href="#">🗙 remove</a></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>no extra tags/keys</p>
+  {% endif %}
+
+  <form method="POST" class="row row-cols-lg-auto g-3 align-items-center">
+    <div class="col-12">
+      <div class="input-group">
+        <input class="form-control" id="tag-or-key" name="tag_or_key" placeholder="tag or key">
+      </div>
+    </div>
+    <div class="col-12">
+      <button type="submit" class="btn btn-primary">add</button>
+    </div>
+  </form>
+
+</div>
+{% endblock %}
