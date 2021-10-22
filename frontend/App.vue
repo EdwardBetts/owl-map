@@ -746,7 +746,6 @@ export default {
       isa_list: [],
       isa_lookup: {},
       items: {},
-      yellowMarker: osmYellowMarker,
       osm_loaded: false,
       wikidata_loaded: false,
       osm_loading: false,
