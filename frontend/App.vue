@@ -1,6 +1,29 @@
 <template>
 <div>
 
+  <div class="modal fade" ref="error_modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable modal-xl">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title">
+            <span v-if="api_call_error_message">{{ api_call_error_message }}</span>
+            <span v-else>Error from server</span>
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div v-if="api_call_error_traceback">
+            <div>error message: {{ api_call_error_message }}</div>
+            <div class="mt-2"><pre>{{ api_call_error_traceback }}</pre></div>
+          </div>
+        </div>
+        <div class="modal-footer bg-danger">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="map">
   </div>
 
@@ -740,6 +763,10 @@ export default {
       bounds_done: [],
       zoom_on_open: false,
       selected_marker: undefined,
+      debug_info: [],
+      map_update_number: 0,
+      api_call_error_message: undefined,
+      api_call_error_traceback: undefined,
     };
   },
   computed: {
@@ -905,6 +932,10 @@ export default {
     }
   },
   methods: {
+		api_call(endpoint, options) {
+      var url = `${this.api_base_url}/api/1/${endpoint}`;
+			return axios.get(url, options).catch(this.show_api_error_modal);
+		},
     update_unload_warning(edit_list) {
       if (edit_list.length) {
         addEventListener("beforeunload", beforeUnloadListener, {capture: true});
@@ -934,6 +965,22 @@ export default {
     },
     bounds_param() {
       return 'bounds=' + this.map.getBounds().toBBoxString();
+    },
+    show_api_error_modal(error) {
+      var reply = error.data;
+      this.api_call_error_message = reply.error;
+      this.api_call_error_traceback = reply.traceback;
+      var error_modal = new bootstrap.Modal(this.$refs.error_modal);
+
+      this.$refs.error_modal.addEventListener('hidden.bs.modal', function (event) {
+        this.api_call_error_message = undefined;
+        this.api_call_error_traceback = undefined;
+      })
+
+      error_modal.show();
+    },
+    test_api_error() {
+      this.api_call("error");
     },
     close_edit_list() {
       this.view_edits = false;
@@ -1223,15 +1270,13 @@ export default {
       if (item.detail_requested !== undefined) return;
       item.detail_requested = true;
 
-      var item_tags_url = `${this.api_base_url}/api/1/item/${qid}/tags`;
-      axios.get(item_tags_url).then((response) => {
+      this.api_call(`item/${qid}/tags`).then((response) => {
         var qid = response.data.qid;
         this.items[qid].tag_or_key_list = response.data.tag_or_key_list;
+        this.items[qid].tag_src = response.data.tag_src;
       });
 
-      var item_osm_candidates_url = `${this.api_base_url}/api/1/item/${qid}/candidates`;
-
-      axios.get(item_osm_candidates_url).then((response) => {
+      this.api_call(`item/${qid}/candidates`).then((response) => {
         var qid = response.data.qid;
         var item = this.items[qid];
         var osm_identifiers = item.osm ? Object.keys(item.osm) : [];
@@ -1388,18 +1433,18 @@ export default {
       this.wikidata_loading = true;
       this.osm_loading = true;
 
-      bounds ||= this.map.getBounds();
-
-      var items_url = this.api_base_url + "/api/1/items";
-      var osm_objects_url = this.api_base_url + "/api/1/osm";
-
-      var params = { bounds: bounds.toBBoxString() };
+      var params = { bounds: this.bbox_string(bounds) };
 
       if (this.item_type_filters.length) {
         params["isa"] = this.item_type_filters.map(isa => isa.qid).join(",");
       }
 
-      axios.get(items_url, { params: params }).then((response) => {
+      this.debug_info.push(`${this_update}: get items ` + this.bbox_string(bounds));
+      this.api_call("items", { params: params }).then((response) => {
+        if (this.map_update_number > this_update) {
+          this.debug_info.push(`${this_update}: got items, took ${response.data.duration.toFixed(4)} seconds. ignoring, ${this.map_update_number} is newer`)
+          return;
+        }
         this.clear_isa();
         this.isa_list = response.data.isa_count;
         this.isa_list.forEach(isa => {
@@ -1410,15 +1455,26 @@ export default {
           this.isa_labels[isa.qid] = isa.label;
           this.isa_lookup[isa.qid] = isa;
         });
+        this.debug_info.push(`${this_update} got items, took ${response.data.duration.toFixed(4)} seconds`)
         this.process_wikidata_items(response.data.items);
         this.wikidata_loaded = true;
-        this.wikidata_loading = false;
 
         this.check_for_missing();
         this.hits = [];
+
+        this.wikidata_loading = false;
       });
 
-      axios.get(osm_objects_url, { params: params }).then((response) => {
+      this.debug_info.push(`${this_update}: get OSM objects ` + this.bbox_string(bounds));
+      this.api_call("osm", { params: params }).then((response) => {
+        var osm_count = response.data.objects.length;
+
+        if (this.map_update_number > this_update) {
+          this.debug_info.push(`${this_update}: got OSM: ${osm_count} objects. took ${response.data.duration.toFixed(4)} seconds, ignoring, ${this.map_update_number} is newer`)
+          return;
+        }
+
+        this.debug_info.push(`${this_update}: got OSM: ${osm_count} objects. took ${response.data.duration.toFixed(4)} seconds`)
         response.data.objects.forEach((osm) => {
           var qid = osm.wikidata;
           var item = this.items[qid] ||= {'qid': qid};
@@ -1432,14 +1488,21 @@ export default {
 
         });
         this.osm_loaded = true;
-        this.osm_loading = false;
 
         this.check_for_missing();
         this.hits = [];
+
+        this.osm_loading = false;
       });
     },
+    bbox_string(bounds) {
+      const dp = 4;
+      return [bounds.getWest().toFixed(dp),
+              bounds.getSouth().toFixed(dp),
+              bounds.getEast().toFixed(dp),
+              bounds.getNorth().toFixed(dp)].join(',');
+    },
     auto_load(bounds) {
-      var count_url = this.api_base_url + "/api/1/count";
       bounds ||= this.map.getBounds();
       this.map_area = this.bounds_area(bounds);
       if (this.area_too_big) {
@@ -1447,17 +1510,17 @@ export default {
         if (this.items) this.clear_items();
         return;
       }
-      var params = { bounds: bounds.toBBoxString() };
-
-      console.log(this.item_type_filters.length);
+      var params = { bounds: this.bbox_string(bounds) };
 
       if (this.item_type_filters.length) {
         params["isa"] = this.item_type_filters.map(isa => isa.qid).join(",");
         console.log(params.isa);
       }
 
-      axios.get(count_url, { params: params }).then((response) => {
+      this.debug_info.push("count " + this.bbox_string(bounds));
+      this.api_call("count", { params: params }).then((response) => {
         this.item_count = response.data.count;
+        this.debug_info.push(`item count: ${this.item_count}, took ${response.data.duration.toFixed(4)} seconds`)
         if (!this.too_many_items) this.load_wikidata_items(bounds);
       });
     },
@@ -1471,8 +1534,7 @@ export default {
       if (!this.search_text) return;
       this.current_hit = undefined;
       var params = { q: this.search_text };
-      var api_search_url = this.api_base_url + "/api/1/search";
-      axios.get(api_search_url, { params: params }).then((response) => {
+      this.api_call("search", { params: params }).then((response) => {
         this.hits = response.data.hits;
         if (!this.hits.length) return;
 
@@ -1510,8 +1572,10 @@ export default {
         lat: c.lat.toFixed(5),
         lon: c.lng.toFixed(5),
       };
-      var missing_url = this.api_base_url + "/api/1/missing";
-      axios.get(missing_url, { params: params }).then((response) => {
+      this.debug_info.push("missing: " + params.qids);
+      this.api_call("missing", { params: params }).then((response) => {
+        var item_count = response.data.items.length;
+        this.debug_info.push(`missing done: ${item_count} items, took ${response.data.duration.toFixed(2)} seconds`);
         response.data.isa_count.forEach((isa) => {
           this.isa_labels[isa.qid] = isa.label;
           if (this.isa_lookup[isa.qid] === undefined) {
