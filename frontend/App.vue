@@ -593,10 +593,9 @@
                 </td>
                 <td>
                 <span class="badge bg-primary float-end">{{ osm.type }}</span>
-                <span v-if="osm.name">{{ osm.name }} </span>
-                <i v-else>no name </i>
+                <span v-if="osm.name">{{ osm.name }}</span>
                 <template v-if="show_presets && osm.presets.length">
-                  <br>
+                  <template v-if="osm.name"><br></template>
                 <span v-for="(p, index) in osm.presets">
                   <span v-if="index != 0">, </span>
                   <a
@@ -606,6 +605,7 @@
                     @click.stop>{{p.name}} <i class="fa fa-external-link"></i></a>
                 </span>
                 </template>
+                <template v-if="!osm.name"> <i>no name</i></template>
 
                 <span v-if="osm.address && osm.address != osm.name">
                     <br>street address: {{ osm.address }}
