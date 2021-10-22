@@ -169,8 +169,8 @@
               <strong>item type</strong><br/>
               <span
                   v-bind:key="`isa-${edit.qid}-${isa_qid}`"
-                  v-for="isa_qid in edit.wikidata.isa_list">
-                <a :href="qid_url(isa_qid)" target="_blank">{{isa_labels[isa_qid]}}</a> ({{isa_qid}})
+                  v-for="isa in edit.wikidata.isa_list">
+                <a :href="qid_url(isa.qid)" target="_blank">{{ isa.label }}</a> ({{isa.qid}})
                 <br/>
               </span>
 
@@ -451,8 +451,9 @@
           </span>
 
           <br><strong>item type</strong>
-          <span v-bind:key="`isa-${wd_item.qid}-${isa_qid}`" v-for="isa_qid in wd_item.isa_list">
-            <br><a :href="qid_url(isa_qid)" target="_blank">{{isa_labels[isa_qid]}}</a> ({{isa_qid}})
+          <span v-bind:key="`isa-${wd_item.qid}-${isa.qid}`" v-for="isa in wd_item.isa_list">
+            <br><a :href="qid_url(isa.qid)" target="_blank">{{isa.label}}</a> ({{isa.qid}})
+            <a :href="'/isa/' + isa.qid" target="_blank"><i class="fa fa-pencil-square-o"></i></a>
           </span>
 
           <span v-if="wd_item.street_address.length">
@@ -467,11 +468,12 @@
 
           <span v-if="wd_item.heritage_designation.length">
             <br><strong>heritage designation</strong>
-            <br>{{ wd_item.heritage_designation.join("; ") }}
+            <span v-bind:key="`hd-${wd_item.qid}-${hd.qid}`" v-for="hd in wd_item.heritage_designation">
+              <br><a :href="qid_url(hd.qid)" target="_blank">{{hd.label}}</a> ({{hd.qid}})
+            </span>
           </span>
 
           </div>
-
           <div class="col-xl-6">
 
           <div v-if="bounds_before_open" class="alert alert-info">
@@ -813,7 +815,7 @@ export default {
       return count;
     },
     item_is_selceted(item) {
-      return item.wikidata.isa_list.some(isa => this.isa_ticked.includes(isa));
+      return item.wikidata.isa_list.some(isa => this.isa_ticked.includes(isa.qid));
     },
     selected_items() {
       var ret = {};
@@ -825,7 +827,7 @@ export default {
         if (!this.linked && item.osm) continue;
         if (!this.not_linked && !item.osm) continue;
 
-        if (item.wikidata.isa_list.some(isa => this.isa_ticked.includes(isa))) {
+        if (item.wikidata.isa_list.some(isa => this.isa_ticked.includes(isa.qid))) {
           ret[qid] = item;
         }
       }
@@ -864,9 +866,7 @@ export default {
       }
 
       var params = { q: value };
-      var isa_search_url = `${this.api_base_url}/api/1/isa_search`;
-
-      axios.get(isa_search_url, { params: params }).then((response) => {
+      this.api_call("isa_search", { params: params }).then((response) => {
         this.item_type_hits = response.data.items;
       });
     },
@@ -920,7 +920,7 @@ export default {
       for(const item of Object.values(this.selected_items)) {
         // var opacity = 0.9;
         if (highlight_isa) {
-          var match = item.wikidata.isa_list.some(isa => isa == highlight_isa.qid);
+          var match = item.wikidata.isa_list.some(isa => isa.qid == highlight_isa.qid);
           // opacity = match ? 1 : 0.2;
           if (match) {
             this.add_hover_circles(item);
