@@ -662,7 +662,7 @@ def oauth_callback():
 def validate_edit_list(edits):
     for e in edits:
         assert model.Item.get_by_qid(e["qid"])
-        assert e["op"] in {"add", "remove"}
+        assert e["op"] in {"add", "remove", "change"}
         osm_type, _, osm_id = e['osm'].partition('/')
         osm_id = int(osm_id)
         if osm_type == 'node':
@@ -744,6 +744,8 @@ def process_edit(changeset_id, e):
         root[0].append(tag)
     if e["op"] == "remove":
         root[0].remove(existing)
+    if e["op"] == "change":
+        existing.set("v", qid)
 
     element_data = etree.tostring(root)
     try:
@@ -761,7 +763,7 @@ def process_edit(changeset_id, e):
         return "element-error"
 
     new_tags = dict(osm.tags)
-    if e["op"] == "add":
+    if e["op"] in ("add", "change"):
         new_tags["wikidata"] = qid
     if e["op"] == "remove":
         del new_tags["wikidata"]
