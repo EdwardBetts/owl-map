@@ -88,7 +88,7 @@ def get_hit_name(hit):
     if country_code:
         country_code == country_code.lower()
 
-    if country_code == "us":
+    if country_code == "us" and "state" in address:
         state = address["state"]
         return f"{n1}, {state}, USA"
 
