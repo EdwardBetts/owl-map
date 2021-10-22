@@ -392,3 +392,11 @@ class SkipIsA(Base):
     item_id = Column(Integer, ForeignKey('item.item_id'), primary_key=True)
 
     item = relationship('Item')
+
+class ItemExtraKeys(Base):
+    __tablename__ = 'item_extra_keys'
+    item_id = Column(Integer, ForeignKey('item.item_id'), primary_key=True)
+    tag_or_key = Column(String, primary_key=True)
+    note = Column(String)
+
+    item = relationship('Item')
