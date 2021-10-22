@@ -146,6 +146,18 @@ class Item(Base):
 
         return dict(d) or None
 
+    def get_isa(self):
+        isa_list = []
+        of_property = "P642"
+        for claim in self.claims.get("P31", []):
+            qualifiers = claim.get("qualifiers", {})
+            if "datavalue" in claim["mainsnak"]:
+                isa_list.append(claim["mainsnak"]["datavalue"]["value"])
+            for of_qualifier in qualifiers.get(of_property, []):
+                if "datavalue" in of_qualifier:
+                    isa_list.append(of_qualifier["datavalue"]["value"])
+        return isa_list
+
     def get_isa_qids(self):
         return [v["id"] for v in self.get_claim("P31") if v]
 
