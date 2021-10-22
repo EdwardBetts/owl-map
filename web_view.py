@@ -5,12 +5,14 @@ from flask import (Flask, render_template, request, jsonify, redirect, url_for, 
 from sqlalchemy import func
 from sqlalchemy.sql.expression import update
 from matcher import (nominatim, model, database, commons, wikidata, wikidata_api,
-                     osm_oauth, edit, mail, api)
+                     osm_oauth, edit, mail, api, error_mail)
+from werkzeug.debug.tbtools import get_current_traceback
 from matcher.data import property_map
 from time import time, sleep
 from requests_oauthlib import OAuth1Session
 from lxml import etree
-from sqlalchemy.orm.attributes import flag_modified
+import werkzeug.exceptions
+import inspect
 import flask_login
 import requests
 import json
@@ -24,6 +26,7 @@ re_point = re.compile(r'^POINT\((.+) (.+)\)$')
 app = Flask(__name__)
 app.debug = True
 app.config.from_object('config.default')
+error_mail.setup_error_mail(app)
 
 login_manager = flask_login.LoginManager(app)
 login_manager.login_view = 'login_route'
@@ -46,6 +49,32 @@ def shutdown_session(exception=None):
 @app.before_request
 def global_user():
     g.user = flask_login.current_user._get_current_object()
+
+def dict_repr_values(d):
+    return {key: repr(value) for key, value in d.items()}
+
+
+@app.errorhandler(werkzeug.exceptions.InternalServerError)
+def exception_handler(e):
+    tb = get_current_traceback()
+    last_frame = next(frame for frame in reversed(tb.frames) if not frame.is_library)
+    last_frame_args = inspect.getargs(last_frame.code)
+    if request.path.startswith("/api/"):
+        return cors_jsonify({
+            "success": False,
+            "error": tb.exception,
+            "traceback": tb.plaintext,
+            "locals": dict_repr_values(last_frame.locals),
+            "last_function": {
+                "name": tb.frames[-1].function_name,
+                "args": repr(last_frame_args),
+            },
+        }), 500
+
+    return render_template('show_error.html',
+                           tb=tb,
+                           last_frame=last_frame,
+                           last_frame_args=last_frame_args), 500
 
 def cors_jsonify(*args, **kwargs):
     response = jsonify(*args, **kwargs)
