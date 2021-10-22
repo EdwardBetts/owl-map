@@ -648,6 +648,21 @@
                     <span v-else class="badge bg-info">different item</span>
                   </span>
                 </span>
+
+                <div v-if="osm.tags['brand:wikidata']">
+                  Brand Wikidata tag:
+                  <a :href="`https://wikidata.org/wiki/${osm.tags['brand:wikidata']}`">{{ osm.tags['brand:wikidata'] }}</a>
+                  <span class="ms-1">
+                    <span v-if="osm.tags['brand:wikidata'] == wd_item.qid" class="badge bg-success">this item</span>
+                    <span v-else class="badge bg-info">different item</span>
+                  </span>
+                </div>
+
+                <div v-if="osm.tags['brand:wikidata'] == wd_item.qid" class="alert alert-info mt-1">
+                  <i class="fa fa-exclamation-triangle"></i>
+                  No need to add a Wikidata tag, already tagged as brand.
+                </div>
+
                 <div class="card" v-if="show_tags">
                   <div class="card-body tag-card-body">
                     <span class="badge bg-secondary float-end">tags</span>
