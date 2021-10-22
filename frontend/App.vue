@@ -735,7 +735,7 @@ export default {
   },
   data() {
     return {
-      api_base_url: "https://v2.osm.wikidata.link",
+      api_base_url: "https://map.osm.wikidata.link",
       tag_or_key_list: [],
       search_text: "",
       load_button_pressed: false,
