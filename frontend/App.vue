@@ -1473,6 +1473,13 @@ export default {
         }
     },
     load_wikidata_items(bounds) {
+      bounds ||= this.map.getBounds();
+      var this_update = this.map_update_number += 1;
+
+      for(const b of this.bounds_done) {
+        if (b.contains(bounds)) return;  // already done
+      }
+
       this.load_button_pressed = true;
       this.wikidata_loaded = false;
       this.osm_loaded = false;
@@ -1606,6 +1613,8 @@ export default {
       for (const [qid, item] of Object.entries(this.items)) {
         if (!item.wikidata) missing_qids.push(qid);
       }
+
+      this.bounds_done.push(this.map.getBounds());
 
       if (missing_qids.length == 0) {
         this.update_wikidata();
