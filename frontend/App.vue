@@ -225,7 +225,12 @@
 
                     <br>
                       <span v-if="osm.selected">
-                        add tag: <span class="badge bg-success">wikidata={{ edit.qid }}</span>
+                        <span v-if="osm.tags.wikidata !== undefined">
+                          update tag: <span class="badge bg-success">wikidata={{ edit.qid }}</span>
+                        </span>
+                        <span v-else>
+                          add tag: <span class="badge bg-success">wikidata={{ edit.qid }}</span>
+                        </span>
                       </span>
                       <span v-else>
                         remove tag: <span class="badge bg-danger">wikidata={{ edit.qid }}</span>
@@ -1031,11 +1036,21 @@ export default {
       this.upload_state = "init";
       var edit_list = [];
       this.edits.forEach((edit) => {
+        var qid = edit.item.qid;
+        var osm = edit.osm;
         var e = {
-          'qid': edit.item.qid,
-          'osm': edit.osm.identifier,
-          'op': (edit.osm.selected ? 'add' : 'remove'),
+          'qid': qid,
+          'osm': osm.identifier,
         };
+        if (osm.selected) {
+          if (osm.tags.wikidata !== undefined && osm.tags.wikidata != qid) {
+            e['op'] = 'change';
+          } else {
+            e['op'] = 'add';
+          }
+        } else {
+          e['op'] = 'remove';
+        }
         edit_list.push(e);
       });
       var post_json = {
