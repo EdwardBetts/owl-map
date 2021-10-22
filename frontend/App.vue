@@ -529,6 +529,25 @@
 
         <div v-if="current_item.nearby && !current_item.nearby.length">
           <strong>No OSM matches found nearby</strong>
+
+          <div class="mt-2" v-if="current_item.tag_or_key_list.length">
+            <p>The OSM tags/keys used as the search criteria to find matching
+            OSM objects are listed below, along with the Wikidata item that was
+            the source.</p>
+            <div v-for="v in current_item.tag_or_key_list">
+              <b>{{ v }}</b><br>
+
+              <div v-for="src_list in current_item.tag_src[v]">
+                <a :href="qid_url(wd_item.qid)" target="_blank">{{ wd_item.label }}</a>&nbsp;({{ wd_item.qid }})<br>
+                <span v-for="(src_obj, i) in src_list">
+                  &rdca; <a :href="qid_url(src_obj.qid)">{{ src_obj.label  }}</a>&nbsp;({{ src_obj.qid}})<br></span>
+              </div>
+            </div>
+          </div>
+          <div v-else>
+            There are no OSM tags/keys associated with this type of item on Wikidata.
+          </div>
+
         </div>
         <div v-if="current_item.nearby && current_item.nearby.length">
 
