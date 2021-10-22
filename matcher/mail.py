@@ -46,10 +46,6 @@ def get_username():
     return user
 
 
-def get_area(place):
-    return f"{place.area_in_sq_km:,.2f} sq km" if place.area else "n/a"
-
-
 def error_mail(subject, data, r, via_web=True):
     body = f"""
 remote URL: {r.url}
@@ -71,46 +67,10 @@ reply:
     send_mail(subject, body)
 
 
-def announce_change(change):
-    body = f"""
-user: {change.user.username}
-name: {change.place.display_name}
-page: {change.place.candidates_url(_external=True)}
-items: {change.update_count}
-comment: {change.comment}
-
-https://www.openstreetmap.org/changeset/{change.id}
-
-"""
-
-    send_mail(f"tags added: {change.place.name_for_changeset}", body)
-
-
-def place_error(place, error_type, error_detail):
-    body = f"""
-user: {get_username()}
-name: {place.display_name}
-page: {place.candidates_url(_external=True)}
-area: {get_area(place)}
-error:
-{error_detail}
-"""
-
-    if error_detail is None:
-        error_detail = "[None]"
-    elif len(error_detail) > 100:
-        error_detail = "[long error message]"
-
-    subject = f"{error_type}: {place.name} - {error_detail}"
-    send_mail(subject, body)
-
-
-def open_changeset_error(place, changeset, r):
-    url = place.candidates_url(_external=True)
+def open_changeset_error(session_id, changeset, r):
     username = g.user.username
     body = f"""
 user: {username}
-name: {place.display_name}
 page: {url}
 
 message user: https://www.openstreetmap.org/message/new/{username}
@@ -125,7 +85,7 @@ reply:
 
 """
 
-    send_mail("error creating changeset:" + place.name, body)
+    send_mail("error creating changeset:" + body)
 
 
 def send_traceback(info, prefix="osm-wikidata"):
