@@ -283,8 +283,9 @@ def search_page():
 
 @app.route("/map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lon>")
 def map_location(zoom, lat, lon):
-    user = flask_login.current_user
-    username = user.username if user.is_authenticated else None
+    qid = request.args.get("item")
+    if qid:
+        api.get_item(qid[1:])
 
     return render_template(
         "map.html",
