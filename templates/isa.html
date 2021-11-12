@@ -35,6 +35,11 @@
   {% endif %}
   </div>
 
+  {#
+  <h4>tags</h4>
+  <pre>{{ tags | pprint }}</pre>
+  #}
+
   <h4>subclass of</h4>
   <div class="mb-3">
   {% if subclass_list %}
@@ -61,6 +66,7 @@
   {% endif %}
 
   <h4>extra OpenStreetMap tags/keys</h4>
+  <p>Sometimes the OSM tags/keys are insufficient to find a good match, so this tool includes an exta tags/keys to check.</p>
 
   {% if extra %}
     <ul>
