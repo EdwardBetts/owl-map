@@ -280,8 +280,9 @@ def get_item_tags(item):
 
     seen = set(isa_list) | skip_isa
     stop = {
-        "Q11799049",  # public institution
-        "Q7075",  # library
+        "Q11799049": "public institution",
+        "Q7075": "library",
+        "Q329683": "industrial park",
     }
     while isa_items:
         isa, isa_path = isa_items.pop()
