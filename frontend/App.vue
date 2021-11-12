@@ -210,6 +210,9 @@
                     <span v-else-if="osm.tags['addr:street'] && osm.address != osm.name">
                         <br>street: {{ osm.tags['addr:street'] }}
                     </span>
+                    <span v-else-if="osm.tags['addr:housenumber'] && osm.address != osm.name">
+                        <br>house number: {{ osm.tags['addr:housenumber'] }}
+                    </span>
 
                     <span v-if="osm.address_list.length">
                         <br>nodes within building: {{ osm.address_list.join("; ") }}
@@ -612,6 +615,9 @@
                 </span>
                 <span v-else-if="osm.tags['addr:street'] && osm.address != osm.name">
                     <br>street: {{ osm.tags['addr:street'] }}
+                </span>
+                <span v-else-if="osm.tags['addr:housenumber'] && osm.address != osm.name">
+                    <br>house number: {{ osm.tags['addr:housenumber'] }}
                 </span>
 
                 <span v-if="osm.address_list.length">
