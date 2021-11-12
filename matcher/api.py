@@ -655,12 +655,7 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
 
 def get_item(item_id):
     item = model.Item.query.get(item_id)
-    if item:
-        return item
-    item = get_and_save_item(f"Q{item_id}")
-    database.session.add(item)
-    database.session.commit()
-    return item
+    return item or get_and_save_item(f"Q{item_id}")
 
 
 def get_item_street_addresses(item):
