@@ -26,6 +26,17 @@ tag_prefixes = {
     "historic",
 }
 
+# these tags are too generic, so we ignore them
+skip_tags = {
+    "Key:addr",
+    "Key:addr:street",
+    "Key:lit",
+    "Key:image",
+    "Key:name",
+    "Key:symbol",
+    "Key:brand",
+}
+
 def get_country_iso3166_1(lat, lon):
     point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), srid)
     alpha2_codes = set()
@@ -254,17 +265,6 @@ def get_items(item_ids):
 
 
 def get_item_tags(item):
-    skip_tags = {
-        "Key:addr",
-        "Key:addr:street",
-        "Key:lit",
-        "Key:image",
-        "Key:name",
-        "Key:symbol",
-        "Key:brand",
-    }
-
-    isa_items = []
     isa_list = [v["numeric-id"] for v in item.get_isa()]
     isa_items = [(isa, []) for isa in get_items(isa_list)]
 
