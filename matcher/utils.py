@@ -175,11 +175,16 @@ def format_wikibase_time(v):
     p = v["precision"]
     t = v["time"]
 
-    assert p in (9, 10, 11)
+    assert p in (7, 9, 10, 11)
+
+    # TODO: handle dates with century precision (7)
+    # example: https://www.wikidata.org/wiki/Q108266998
 
     if p == 11:
         return date.fromisoformat(t[1:11]).strftime("%d %B %Y")
     if p == 10:
         return date.fromisoformat(t[1:8] + "-01").strftime("%B %Y")
     if p == 9:
+        return t[1:5]
+    if p == 7:
         return t[1:5]
