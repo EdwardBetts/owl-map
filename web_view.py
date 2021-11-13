@@ -157,12 +157,15 @@ def isa_page(item_id):
             "isa_page_url": url_for("isa_page", item_id=s["numeric-id"]),
         })
 
+    tags = api.get_tags_for_isa_item(item)
+
     return render_template(
         "isa.html",
         item=item,
         extra=extra,
         subclass_list=subclass_list,
-        username=get_username()
+        username=get_username(),
+        tags=tags,
     )
 
 
