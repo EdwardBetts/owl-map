@@ -7,6 +7,7 @@ import user_agents
 import re
 import pattern.en
 from datetime import date
+from num2words import num2words
 
 metres_per_mile = 1609.344
 feet_per_metre = 3.28084
@@ -187,4 +188,5 @@ def format_wikibase_time(v):
     if p == 9:
         return t[1:5]
     if p == 7:
-        return t[1:5]
+        century = ((int(t[:5]) - 1) // 100) + 1
+        return num2words(century, to="ordinal_num") + " century"
