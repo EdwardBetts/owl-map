@@ -301,16 +301,90 @@ def get_item_tags(item):
             # item is specific enough, no need to keep walking the item hierarchy
             continue
 
-        subclass_of = {v["numeric-id"] for v in (isa.get_claim("P279") or []) if v}
-        religion = {v["numeric-id"] for v in (isa.get_claim("P140") or []) if v}
-        sport = {v["numeric-id"] for v in (isa.get_claim("P641") or []) if v}
-        use = {v["numeric-id"] for v in (isa.get_claim("P366") or []) if v}
-        check = subclass_of | religion | sport | use
+        check = set()
+        properties = [
+            ("P279", "subclass of"),
+            ("P140", "religion"),
+            ("P641", "sport"),
+            ("P366", "use"),
+            ("P1269", "facet of"),
+            # ("P361", "part of"),
+        ]
+
+        for pid, label in properties:
+            check |= {v["numeric-id"] for v in (isa.get_claim(pid) or []) if v}
+
         print(isa.qid, isa.label(), check)
         isa_list = check - seen
         seen.update(isa_list)
         isa_items += [(isa, isa_path) for isa in get_items(isa_list)]
     return {key: list(values) for key, values in osm_list.items()}
+
+
+def get_tags_for_isa_item(item):
+    isa_list = [item.item_id]
+    isa_items = [(item, [])]
+
+    osm_list = defaultdict(list)
+
+    skip_isa = {row[0] for row in database.session.query(model.SkipIsA.item_id)}
+
+    tram_stop_id = 41176
+    airport_id = 1248784
+    aerodrome_id = 62447
+    if {tram_stop_id, airport_id, aerodrome_id} & set(isa_list):
+        skip_isa.add(41176)  # building (Q41176)
+
+    seen = set(isa_list) | skip_isa
+    stop = {
+        "Q11799049": "public institution",
+        "Q7075": "library",
+        "Q329683": "industrial park",
+    }
+    items_checked = []
+    items_checked_done = set()
+    while isa_items:
+        isa, isa_path = isa_items.pop()
+        if not isa:
+            continue
+        isa_path = isa_path + [{'qid': isa.qid, 'label': isa.label()}]
+        if isa.item_id not in items_checked_done:
+            items_checked.append({'qid': isa.qid, 'label': isa.label()})
+            items_checked_done.add(isa.item_id)
+        osm = [v for v in isa.get_claim("P1282") if v not in skip_tags]
+
+        osm += [extra.tag_or_key
+                for extra in model.ItemExtraKeys.query.filter_by(item_id=isa.item_id)]
+
+        for i in osm:
+            osm_list[i].append(isa_path[:])
+
+        if isa.qid in stop:
+            # item is specific enough, no need to keep walking the item hierarchy
+            continue
+
+        check = set()
+        properties = [
+            ("P279", "subclass of"),
+            ("P140", "religion"),
+            ("P641", "sport"),
+            ("P366", "use"),
+            ("P1269", "facet of"),
+            # ("P361", "part of"),
+        ]
+
+        for pid, label in properties:
+            check |= {v["numeric-id"] for v in (isa.get_claim(pid) or []) if v}
+
+        print(isa.qid, isa.label(), check)
+        isa_list = check - seen
+        seen.update(isa_list)
+        isa_items += [(isa, isa_path) for isa in get_items(isa_list)]
+    return {
+        'tags': {key: list(values) for key, values in osm_list.items()},
+        'checked': items_checked,
+    }
+
 
 def add_isa_filter(q, isa_qids):
 
