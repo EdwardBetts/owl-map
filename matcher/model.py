@@ -11,7 +11,7 @@ from geoalchemy2 import Geometry
 from collections import defaultdict
 from flask_login import UserMixin
 from .database import session, now_utc
-from . import wikidata, utils
+from . import wikidata, utils, mail
 import json
 import re
 
@@ -197,8 +197,23 @@ class Item(Base):
     def is_tram_stop(self):
         return 'Q2175765' in self.get_isa_qids()
 
+    def alert_admin_about_bad_time(self, v):
+        body = ("Wikidata item has an unsupported time precision\n\n"
+                + self.wd_url + "\n\n" + "Value:\n\n" + json.dumps(v, indent=2))
+        mail.send_mail(f"OWL Map: bad time value in {self.qid}", body)
+
     def closed(self):
-        return [utils.format_wikibase_time(v) for v in self.get_claim("P3999") if v]
+        ret = []
+        for v in self.get_claim("P3999"):
+            if not v:
+                continue
+            t = utils.format_wikibase_time(v)
+            if t:
+                ret.append(t)
+            else:
+                self.alert_admin_about_bad_time(v)
+
+        return ret
 
 # class Claim(Base):
 #     __tablename__ = "claim"

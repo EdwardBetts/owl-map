@@ -176,8 +176,6 @@ def format_wikibase_time(v):
     p = v["precision"]
     t = v["time"]
 
-    assert p in (7, 9, 10, 11)
-
     # TODO: handle dates with century precision (7)
     # example: https://www.wikidata.org/wiki/Q108266998
 
