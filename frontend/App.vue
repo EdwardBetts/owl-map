@@ -1305,6 +1305,10 @@ export default {
       this.close_edit_list();
 
       var item = this.items[qid];
+      if (item === undefined) {
+        this.close_item();
+        return;
+      }
       if (marker) {
         this.selected_marker = marker;
       } else {
