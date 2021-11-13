@@ -546,6 +546,15 @@ def api_search():
 
     return cors_jsonify(success=True, hits=hits)
 
+@app.route("/api/1/polygon/<osm_type>/<int:osm_id>")
+def api_polygon(osm_type, osm_id):
+    obj = model.Polygon.get_osm(osm_type, osm_id)
+    return cors_jsonify(successful=True,
+                        osm_type=osm_type,
+                        osm_id=osm_id,
+                        geojson=obj.geojson())
+
+
 @app.route("/refresh/Q<int:item_id>")
 def refresh_item(item_id):
     assert not model.Item.query.get(item_id)
