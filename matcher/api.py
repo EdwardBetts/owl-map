@@ -778,6 +778,8 @@ def item_detail(item):
             "label": heritage_designation_item.label(),
         })
 
+    isa_items = [get_item(isa["numeric-id"]) for isa in item.get_isa()]
+
     d = {
         "qid": item.qid,
         "label": item.label(),
@@ -785,11 +787,7 @@ def item_detail(item):
         "markers": locations,
         "image_list": image_filenames,
         "street_address": street_address,
-        # "isa_list": item.get_isa_qids(),
-        "isa_list": [
-            {"qid": isa["id"], "label": get_item(isa["numeric-id"]).label()}
-            for isa in item.get_isa()
-        ],
+        "isa_list": [{"qid": isa.qid, "label": isa.label()} for isa in isa_items if isa],
         "closed": item.closed(),
         "heritage_designation": heritage_designation,
     }
