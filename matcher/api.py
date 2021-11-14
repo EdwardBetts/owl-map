@@ -605,6 +605,7 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
     item_id = item.item_id
     item_is_linear_feature = item.is_linear_feature()
     item_is_street = item.is_street()
+    item_names = {n.lower() for n in item.names().keys()}
 
     check_is_street_number_first(item.locations[0].get_lat_lon())
 
@@ -707,6 +708,7 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
             "id": osm_id,
             "distance": distance,
             "name": name,
+            "name_match": (name.lower() in item_names),
             "tags": tags,
             "geojson": json.loads(geojson),
             "presets": get_presets_from_tags(shape, tags),
