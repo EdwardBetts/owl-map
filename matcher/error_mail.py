@@ -3,13 +3,16 @@ from logging.handlers import SMTPHandler
 from logging import Formatter
 from flask import request
 
-PROJECT = 'osm-wikidata'
+PROJECT = "osm-wikidata"
+
 
 class MatcherSMTPHandler(SMTPHandler):
     def getSubject(self, record):  # noqa: N802
-        return (f'{PROJECT} error: {record.exc_info[0].__name__}'
-                if (record.exc_info and record.exc_info[0])
-                else f'{PROJECT} error: {record.pathname}:{record.lineno:d}')
+        return (
+            f"{PROJECT} error: {record.exc_info[0].__name__}"
+            if (record.exc_info and record.exc_info[0])
+            else f"{PROJECT} error: {record.pathname}:{record.lineno:d}"
+        )
 
 
 class RequestFormatter(Formatter):
@@ -19,9 +22,10 @@ class RequestFormatter(Formatter):
 
 
 def setup_error_mail(app):
-    if not app.config.get('ERROR_MAIL'):
+    if not app.config.get("ERROR_MAIL"):
         return
-    formatter = RequestFormatter('''
+    formatter = RequestFormatter(
+        """
     Message type:       {levelname}
     Location:           {pathname:s}:{lineno:d}
     Module:             {module:s}
@@ -33,12 +37,16 @@ def setup_error_mail(app):
     Message:
 
     {message:s}
-    ''', style='{')
+    """,
+        style="{",
+    )
 
-    mail_handler = MatcherSMTPHandler(app.config['SMTP_HOST'],
-                                      app.config['MAIL_FROM'],
-                                      app.config['ADMINS'],
-                                      app.name + ' error')
+    mail_handler = MatcherSMTPHandler(
+        app.config["SMTP_HOST"],
+        app.config["MAIL_FROM"],
+        app.config["ADMINS"],
+        app.name + " error",
+    )
     mail_handler.setFormatter(formatter)
 
     mail_handler.setLevel(logging.ERROR)

@@ -101,6 +101,7 @@ def get_hit_name(hit):
         n2 = address_values[1]
         return f"{n1}, {n2}, {country}"
 
+
 def get_hit_label(hit):
     tags = hit["extratags"]
     designation = tags.get("designation")
