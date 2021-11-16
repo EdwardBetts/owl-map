@@ -113,10 +113,8 @@ def geoip_user_record():
 
 def get_user_location():
     remote_ip = request.args.get('ip', request.remote_addr)
-    return maxminddb_reader.get(remote_ip)["location"]
-
-    gir = geoip_user_record()
-    return (gir["latitude"], gir["longitude"]) if gir else None
+    maxmind = maxminddb_reader.get(remote_ip)["location"]
+    return maxmind["location"] if maxmind else None
 
 
 @app.route("/")
