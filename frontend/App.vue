@@ -596,7 +596,10 @@
                 </td>
                 <td>
                 <span class="badge bg-primary float-end">{{ osm.type }}</span>
-                <span v-if="osm.name">{{ osm.name }}</span>
+                <span v-if="osm.name">
+                  {{ osm.name }}
+                  <span class="badge bg-success" v-if="osm.name_match">name match</span>
+                </span>
                 <template v-if="show_presets && osm.presets.length">
                   <template v-if="osm.name"><br></template>
                 <span v-for="(p, index) in osm.presets">
