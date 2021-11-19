@@ -469,9 +469,24 @@
             <br>{{wd_item.street_address[0]}}
           </span>
 
+          <span v-if="wd_item.inception.length">
+            <br><strong>inception</strong>
+            <br>{{wd_item.inception.join('; ')}}
+          </span>
+
+          <span v-if="wd_item.p1619.length">
+            <br><strong>date of official opening</strong>
+            <br>{{wd_item.p1619.join('; ')}}
+          </span>
+
           <span v-if="wd_item.closed.length">
             <br><strong>closed</strong>
             <br>{{wd_item.closed.join('; ')}}
+          </span>
+
+          <span v-if="wd_item.p576.length">
+            <br><strong>dissolved, abolished or demolished date</strong>
+            <br>{{wd_item.p576.join('; ')}}
           </span>
 
           <span v-if="wd_item.heritage_designation.length">
