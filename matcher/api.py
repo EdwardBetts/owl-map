@@ -793,6 +793,9 @@ def item_detail(item):
         "street_address": street_address,
         "isa_list": [{"qid": isa.qid, "label": isa.label()} for isa in isa_items if isa],
         "closed": item.closed(),
+        "inception": item.time_claim("P571"),
+        "p1619": item.time_claim("P1619"),
+        "p576": item.time_claim("P576"),
         "heritage_designation": heritage_designation,
     }
 
