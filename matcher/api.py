@@ -708,7 +708,7 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
             "id": osm_id,
             "distance": distance,
             "name": name,
-            "name_match": (name.lower() in item_names),
+            "name_match": (name and name.lower() in item_names),
             "tags": tags,
             "geojson": json.loads(geojson),
             "presets": get_presets_from_tags(shape, tags),
