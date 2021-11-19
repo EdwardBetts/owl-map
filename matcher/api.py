@@ -96,14 +96,14 @@ def drop_way_area(tags):
         del tags["way_area"]
     return tags
 
-def get_part_of(table_name, src_id, bbox_list):
+def get_part_of(table_name, src_id, bbox):
     table_map = {'point': point, 'line': line, 'polygon': polygon}
     table_alias = table_map[table_name].alias()
 
     s = (select([polygon.c.osm_id,
                  polygon.c.tags,
                  func.ST_Area(func.ST_Collect(polygon.c.way))]).
-         where(and_(or_(*[func.ST_Intersects(bbox, polygon.c.way) for bbox in bbox_list]),
+         where(and_(func.ST_Intersects(bbox, polygon.c.way),
                     func.ST_Covers(polygon.c.way, table_alias.c.way),
                     table_alias.c.osm_id == src_id,
                     polygon.c.tags.has_key("name"),
@@ -718,8 +718,10 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
         if area is not None:
             cur["area"] = area
 
-        part_of = [i for i in get_part_of(table, src_id, bbox_list)
-                   if i["tags"]["name"] != name]
+        part_of = []
+        for bbox in bbox_list:
+            part_of += [i for i in get_part_of(table, src_id, bbox)
+                        if i["tags"]["name"] != name]
         if part_of:
             cur["part_of"] = part_of
 
