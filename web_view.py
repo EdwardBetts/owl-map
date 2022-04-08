@@ -1,7 +1,7 @@
 #!/usr/bin/python3.9
 
 from flask import (Flask, render_template, request, jsonify, redirect, url_for, g,
-                   flash, session, Response, stream_with_context)
+                   flash, session, Response, stream_with_context, abort)
 from sqlalchemy import func
 from sqlalchemy.sql.expression import update
 from matcher import (nominatim, model, database, commons, wikidata, wikidata_api,
@@ -113,8 +113,8 @@ def geoip_user_record():
 
 def get_user_location():
     remote_ip = request.args.get('ip', request.remote_addr)
-    maxmind = maxminddb_reader.get(remote_ip)["location"]
-    return maxmind["location"] if maxmind else None
+    maxmind = maxminddb_reader.get(remote_ip)
+    return maxmind.get("location") if maxmind else None
 
 
 @app.route("/")
@@ -138,6 +138,12 @@ def isa_page(item_id):
     item = api.get_item(item_id)
 
     if request.method == "POST":
+        tag_or_key = request.form["tag_or_key"]
+        extra = model.ItemExtraKeys(item=item, tag_or_key=tag_or_key)
+        database.session.add(extra)
+        database.session.commit()
+        flash("extra OSM tag/key added")
+
         return redirect(url_for(request.endpoint, item_id=item_id))
 
     q = model.ItemExtraKeys.query.filter_by(item=item)
@@ -240,12 +246,19 @@ def identifier_page(pid):
 def map_start_page():
     loc = get_user_location()
 
+    if loc:
+        lat, lon = loc["latitude"], loc["longitude"]
+        radius = loc["accuracy_radius"]
+    else:
+        lat, lon = 42.2917, -85.5872
+        radius = 5
+
     return redirect(url_for(
         'map_location',
-        lat=f'{loc["latitude"]:.5f}',
-        lon=f'{loc["longitude"]:.5f}',
+        lat=f'{lat:.5f}',
+        lon=f'{lon:.5f}',
         zoom=16,
-        radius=loc["accuracy_radius"],
+        radius=radius,
         ip=request.args.get('ip'),
     ))
 
@@ -285,8 +298,21 @@ def search_page():
 @app.route("/map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lon>")
 def map_location(zoom, lat, lon):
     qid = request.args.get("item")
+    isa_param = request.args.get("isa")
     if qid:
         api.get_item(qid[1:])
+
+    isa_list = []
+    if isa_param:
+        for isa_qid in isa_param.split(";"):
+            isa = api.get_item(isa_qid[1:])
+            if not isa:
+                continue
+            cur = {
+                "qid": isa.qid,
+                "label": isa.label(),
+            }
+            isa_list.append(cur)
 
     return render_template(
         "map.html",
@@ -298,7 +324,37 @@ def map_location(zoom, lat, lon):
         username=get_username(),
         mode="map",
         q=None,
+        item_type_filter=isa_list,
     )
+
+@app.route("/item/Q<int:item_id>")
+def lookup_item(item_id):
+    item = api.get_item(item_id)
+    if not item:
+        # TODO: show nicer page for Wikidata item not found
+        return abort(404)
+
+    try:
+        lat, lon = item.locations[0].get_lat_lon()
+    except IndexError:
+        # TODO: show nicer page for Wikidata item without coordinates
+        return abort(404)
+
+    return render_template(
+        "map.html",
+        active_tab="map",
+        zoom=16,
+        lat=lat,
+        lon=lon,
+        username=get_username(),
+        mode="map",
+        q=None,
+        qid=item.qid,
+        item_type_filter=[],
+    )
+
+    url = url_for("map_location", zoom=16, lat=lat, lon=lon, item=item.qid)
+    return redirect(url)
 
 
 @app.route("/search/map")
