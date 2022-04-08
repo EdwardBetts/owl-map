@@ -12,7 +12,7 @@ export default {
     ['snowpack-plugin-cdn-import', {
         dependencies: pkg.dependencies,
         enableInDevMode: true,
-        // baseUrl: 'https://unpkg.com',
+        baseUrl: 'https://unpkg.com',
     }]
   ],
   routes: [
