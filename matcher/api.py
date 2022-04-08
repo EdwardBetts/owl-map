@@ -396,7 +396,6 @@ def add_isa_filter(q, isa_qids):
     )
 
     subclass_qid = {qid for qid, in q_subclass.all()}
-    # print(subclass_qid)
 
     isa = func.jsonb_path_query_array(
         model.Item.claims,
@@ -605,7 +604,11 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
     item_id = item.item_id
     item_is_linear_feature = item.is_linear_feature()
     item_is_street = item.is_street()
-    item_names = {n.lower() for n in item.names().keys()}
+    item_names_dict = item.names()
+    if item_names_dict:
+        item_names = {n.lower() for n in item_names_dict.keys()}
+    else:
+        item_names = set()
 
     check_is_street_number_first(item.locations[0].get_lat_lon())
 
@@ -763,6 +766,11 @@ def check_is_street_number_first(latlng):
     g.street_number_first = is_street_number_first(*latlng)
 
 def item_detail(item):
+    unsupported_relation_types = {
+        'Q194356',   # wind farm
+        'Q2175765',  # tram stop
+    }
+
     locations = [list(i.get_lat_lon()) for i in item.locations]
     if not hasattr(g, 'street_number_first'):
         g.street_number_first = is_street_number_first(*locations[0])
@@ -783,6 +791,11 @@ def item_detail(item):
         })
 
     isa_items = [get_item(isa["numeric-id"]) for isa in item.get_isa()]
+    isa_lookup = {isa.qid: isa for isa in isa_items}
+
+    wikipedia_links = [{"lang": site[:-4], "title": link["title"]}
+                       for site, link in sorted(item.sitelinks.items())
+                       if site.endswith("wiki") and len(site) < 8]
 
     d = {
         "qid": item.qid,
@@ -797,10 +810,19 @@ def item_detail(item):
         "p1619": item.time_claim("P1619"),
         "p576": item.time_claim("P576"),
         "heritage_designation": heritage_designation,
+        "wikipedia": wikipedia_links,
     }
 
     if aliases := item.get_aliases():
         d["aliases"] = aliases
+
+    if "commonswiki" in item.sitelinks:
+        d["commons"] = item.sitelinks["commonswiki"]["title"]
+
+    unsupported = isa_lookup.keys() & unsupported_relation_types
+    if unsupported:
+        d["unsupported_relation_types"] = [isa for isa in d["isa_list"]
+                                           if isa.qid in isa_lookup]
 
     return d
 
