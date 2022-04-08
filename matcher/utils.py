@@ -180,11 +180,12 @@ def format_wikibase_time(v):
     # example: https://www.wikidata.org/wiki/Q108266998
 
     if p == 11:
-        return date.fromisoformat(t[1:11]).strftime("%d %B %Y")
+        return date.fromisoformat(t[1:11]).strftime("%-d %B %Y")
     if p == 10:
         return date.fromisoformat(t[1:8] + "-01").strftime("%B %Y")
     if p == 9:
         return t[1:5]
     if p == 7:
         century = ((int(t[:5]) - 1) // 100) + 1
-        return num2words(century, to="ordinal_num") + " century"
+        end = " BC" if century < 0 else ""
+        return num2words(abs(century), to="ordinal_num") + " century" + end
