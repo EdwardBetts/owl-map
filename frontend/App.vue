@@ -303,7 +303,7 @@
                     v-bind:key="isa.qid"
                     v-for="isa in item_type_hits"
                     href="#"
-                    @click.prevent="item_type_filters.includes(isa) || item_type_filters.push(isa)"
+                    @click.prevent="add_item_type_filter(isa)"
                     >
                   {{ isa.label }} ({{ isa.qid }})
                 </a>
@@ -458,10 +458,31 @@
             <br>{{ wd_item.aliases.join("; ") }}
           </span>
 
+          <br><strong>item coordinates</strong>
+          <span v-for="marker in wd_item.markers">
+            <br><a target="_blank" :href="marker_osm_url(marker)" @click.stop>
+              {{ marker[0].toFixed(5) }},
+              {{ marker[1].toFixed(5) }}
+              <i class="fa fa-map-o"></i></a>
+          </span>
+
           <br><strong>item type</strong>
           <span v-bind:key="`isa-${wd_item.qid}-${isa.qid}`" v-for="isa in wd_item.isa_list">
             <br><a :href="qid_url(isa.qid)" target="_blank">{{isa.label}}</a> ({{isa.qid}})
             <a :href="'/isa/' + isa.qid" target="_blank"><i class="fa fa-pencil-square-o"></i></a>
+          </span>
+
+          <span v-if="wd_item.wikipedia.length > 0">
+            <br>
+            <strong>
+              Wikipedia
+              <i class="fa fa-external-link"></i>
+            </strong>
+            <br>
+            <span v-for="wp in wd_item.wikipedia">
+              <a :href="wikipedia_link(wp.lang, wp.title)" target="_blank">{{wp.lang}}</a>
+              &nbsp;
+            </span>
           </span>
 
           <span v-if="wd_item.street_address.length">
@@ -524,6 +545,15 @@
             </a>
           </span>
 
+          <span v-if="wd_item.commons !== undefined">
+            <br><strong>Images on Commons</strong>
+            <br><a
+                :href="`https://commons.wikimedia.org/wiki/${wd_item.commons.replaceAll(' ', '_')}`"
+                target="_blank">
+              {{wd_item.commons}} <i class="fa fa-external-link"></i>
+            </a>
+          </span>
+
         </div></div>
         </div>
 
@@ -548,7 +578,7 @@
         <div v-if="current_item.nearby && !current_item.nearby.length">
           <strong>No OSM matches found nearby</strong>
 
-          <div class="mt-2" v-if="current_item.tag_or_key_list.length">
+          <div class="mt-2" v-if="current_item.tag_or_key_list && current_item.tag_or_key_list.length">
             <p>The OSM tags/keys used as the search criteria to find matching
             OSM objects are listed below, along with the Wikidata item that was
             the source.</p>
@@ -766,6 +796,8 @@ export default {
     startLon: Number,
     startZoom: Number,
     startRadius: Number,
+    startItem: String,
+    startItemTypeFilter: Array,
     username: String,
     startMode: String,
     q: String,
@@ -994,10 +1026,26 @@ export default {
     }
   },
   methods: {
-		api_call(endpoint, options) {
+    wikipedia_link(lang, title) {
+      var norm_title = title.replaceAll(" ", "_");
+      return `https://${lang}.wikipedia.org/wiki/${norm_title}`;
+    },
+    marker_osm_url(marker) {
+      var lat = marker[0].toFixed(5);
+      var lon = marker[1].toFixed(5);
+      return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`
+    },
+    add_item_type_filter(isa) {
+      if (this.item_type_filters.includes(isa)) {
+        return;
+      }
+      this.item_type_filters.push(isa);
+      this.update_map_path();
+    },
+    api_call(endpoint, options) {
       var url = `${this.api_base_url}/api/1/${endpoint}`;
-			return axios.get(url, options).catch(this.show_api_error_modal);
-		},
+      return axios.get(url, options).catch(this.show_api_error_modal);
+    },
     update_unload_warning(edit_list) {
       if (edit_list.length) {
         addEventListener("beforeunload", beforeUnloadListener, {capture: true});
@@ -1216,14 +1264,19 @@ export default {
       this.isa_ticked = Object.keys(this.isa_labels);
     },
     build_map_path() {
+      if (this.current_item) {
+        return `/item/${this.current_qid}`;
+      }
       var zoom = this.map.getZoom();
       var c = this.map.getCenter();
       var lat = c.lat.toFixed(5);
       var lng = c.lng.toFixed(5);
       var path = `/map/${zoom}/${lat}/${lng}`;
-      if (this.current_item) {
-        path += `?item=${this.current_qid}`;
+
+      if (this.item_type_filters.length) {
+        path += "?isa=" + this.item_type_filters.map((t) => t.qid).join(";");
       }
+
       return path;
     },
 
@@ -1755,6 +1808,11 @@ export default {
     this.zoom = this.startZoom;
     this.mode = this.startMode;
     this.changeset_comment = this.defaultComment || '+wikidata';
+    console.log(this.startItemTypeFilter);
+    if (this.startItemTypeFilter.length) {
+      this.show_item_type_filter = true;
+    }
+    this.item_type_filters = this.startItemTypeFilter;
   },
   mounted() {
 
@@ -1763,7 +1821,6 @@ export default {
         center: this.center,
         zoom: this.zoom || 16,
       };
-
 
       var map = L.map("map", options);
       var osm_url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -1788,13 +1845,13 @@ export default {
         this.search_text = this.q.trim();
         this.run_search();
       } else {
-        this.detail_qid = this.qid_from_url();
+        this.detail_qid = this.startItem;
         if (this.detail_qid) {
           this.load_wikidata_items(bounds);
         } else {
           this.auto_load(bounds);
+          this.update_map_path();
         }
-        this.update_map_path();
       }
 
       window.onpopstate = this.onpopstate;
