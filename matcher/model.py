@@ -7,6 +7,8 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.expression import cast
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm.collections import attribute_mapped_collection
 from geoalchemy2 import Geometry
 from collections import defaultdict
 from flask_login import UserMixin
@@ -35,6 +37,14 @@ class Item(Base):
     lastrevid = Column(Integer, nullable=False, unique=True)
     locations = relationship("ItemLocation", cascade="all, delete-orphan", backref="item")
     qid = column_property("Q" + cast(item_id, String))
+
+    wiki_extracts = relationship(
+        "Extract",
+        collection_class=attribute_mapped_collection("site"),
+        cascade="save-update, merge, delete, delete-orphan",
+        backref="item",
+    )
+    extracts = association_proxy("wiki_extracts", "extract")
 
     @classmethod
     def get_by_qid(cls, qid):
@@ -202,18 +212,64 @@ class Item(Base):
                 + self.wd_url + "\n\n" + "Value:\n\n" + json.dumps(v, indent=2))
         mail.send_mail(f"OWL Map: bad time value in {self.qid}", body)
 
-    def closed(self):
+    def time_claim(self, pid):
         ret = []
-        for v in self.get_claim("P3999"):
+        for v in self.get_claim(pid):
             if not v:
                 continue
-            t = utils.format_wikibase_time(v)
+            try:
+                t = utils.format_wikibase_time(v)
+            except Exception:
+                self.alert_admin_about_bad_time(v)
+                raise
+
             if t:
                 ret.append(t)
             else:
                 self.alert_admin_about_bad_time(v)
 
         return ret
+
+    def closed(self):
+        return self.time_claim("P3999")
+
+    def first_paragraph_language(self, lang):
+        if lang not in self.sitelinks():
+            return
+        extract = self.extracts.get(lang)
+        if not extract:
+            return
+
+        empty_list = [
+            "<p><span></span></p>",
+            "<p><span></span>\n</p>",
+            "<p><span></span>\n\n</p>",
+            "<p>\n<span></span>\n</p>",
+            "<p>\n\n<span></span>\n</p>",
+            "<p>.\n</p>",
+            "<p><br></p>",
+            '<p class="mw-empty-elt">\n</p>',
+            '<p class="mw-empty-elt">\n\n</p>',
+            '<p class="mw-empty-elt">\n\n\n</p>',
+        ]
+
+        text = extract.strip()
+        while True:
+            found_empty = False
+            for empty in empty_list:
+                if text.startswith(empty):
+                    text = text[len(empty) :].strip()
+                    found_empty = True
+            if not found_empty:
+                break
+
+        close_tag = "</p>"
+        first_end_p_tag = text.find(close_tag)
+        if first_end_p_tag == -1:
+            # FIXME: e-mail admin
+            return text
+
+        return text[: first_end_p_tag + len(close_tag)]
 
 # class Claim(Base):
 #     __tablename__ = "claim"
@@ -451,3 +507,14 @@ class ItemExtraKeys(Base):
     note = Column(String)
 
     item = relationship('Item')
+
+class Extract(Base):
+    __tablename__ = "extract"
+
+    item_id = Column(Integer, ForeignKey("item.item_id"), primary_key=True)
+    site = Column(String, primary_key=True)
+    extract = Column(String, nullable=False)
+
+    def __init__(self, site, extract):
+        self.site = site
+        self.extract = extract
