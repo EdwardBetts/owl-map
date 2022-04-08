@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
     <link rel="stylesheet" href="https://unpkg.com/fork-awesome@1.2.0/css/fork-awesome.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet-extra-markers@1.2.1/dist/css/leaflet.extra-markers.min.css">
+
+    <link rel="stylesheet" href="{{ url_for("static", filename="frontend/style.css") }}">
   </head>
   {% from "navbar.html" import navbar with context %}
   <body>
@@ -16,8 +18,7 @@
 
     <script src="https://unpkg.com/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
     <script type="module">
-      import { createApp } from "https://cdn.skypack.dev/vue@^3.2.26";
-      import App from {{ url_for('static', filename='snowpack/App.vue.js') | tojson }};
+      import main from {{ url_for('static', filename='frontend/owl.es.js') | tojson }};
 
       const props = {
         startLat: {{ lat }},
@@ -34,7 +35,7 @@
         mockUpload: false,
       };
 
-      const app = createApp(App, props).mount('#app');
+      main(props);
 
     </script>
   </body>
