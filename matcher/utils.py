@@ -5,7 +5,6 @@ import json
 import math
 import user_agents
 import re
-import pattern.en
 from datetime import date
 from num2words import num2words
 
@@ -158,18 +157,6 @@ def is_in_range(address_range, address):
         return m_number.group(1) in numbers
 
     return False
-
-
-def pluralize_label(label):
-    text = label["value"]
-    if label["language"] != "en":
-        return text
-
-    # pattern.en.pluralize has the plural of 'mine' as 'ours'
-    if text == "mine":
-        return "mines"
-
-    return pattern.en.pluralize(text)
 
 
 def format_wikibase_time(v):
