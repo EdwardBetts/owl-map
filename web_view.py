@@ -450,6 +450,15 @@ def api_wikidata_items():
     t1 = time() - t0
     return cors_jsonify(success=True, duration=t1, **ret)
 
+@app.route("/api/1/place/<osm_type>/<int:osm_id>")
+def api_place_items(osm_type, osm_id):
+    t0 = time()
+
+    ret = api.get_place_items(osm_type, osm_id)
+
+    t1 = time() - t0
+    return cors_jsonify(success=True, duration=t1, **ret)
+
 
 @app.route("/api/1/osm")
 def api_osm_objects():

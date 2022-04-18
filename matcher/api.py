@@ -914,3 +914,21 @@ def isa_incremental_search(search_terms):
         }
         ret.append(cur)
     return ret
+
+def get_place_items(osm_type, osm_id):
+    src_id = osm_id * {'way': 1, 'relation': -1}[osm_type]
+
+    q = (model.Item.query
+                   .join(model.ItemLocation)
+                   .join(model.Polygon, func.ST_Covers(model.Polygon.way, model.ItemLocation.location))
+                   .filter(model.Polygon.src_id == src_id))
+    # sql = q.statement.compile(compile_kwargs={"literal_binds": True})
+
+    item_count = q.count()
+    items = []
+    for item in q:
+        keys = ["item_id", "labels", "descriptions", "aliases", "sitelinks", "claims"]
+        item_dict = {key: getattr(item, key) for key in keys}
+        items.append(item_dict)
+
+    return {"count": item_count, "items": items}
