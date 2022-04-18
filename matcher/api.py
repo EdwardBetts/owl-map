@@ -825,7 +825,7 @@ def item_detail(item):
     unsupported = isa_lookup.keys() & unsupported_relation_types
     if unsupported:
         d["unsupported_relation_types"] = [isa for isa in d["isa_list"]
-                                           if isa.qid in isa_lookup]
+                                           if isa["qid"] in isa_lookup]
 
     return d
 
