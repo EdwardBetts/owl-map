@@ -838,6 +838,7 @@ def item_detail(item):
         "p576": item.time_claim("P576"),
         "heritage_designation": heritage_designation,
         "wikipedia": wikipedia_links,
+        "identifiers": item.get_identifiers(),
     }
 
     if aliases := item.get_aliases():
