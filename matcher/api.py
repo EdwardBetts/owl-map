@@ -418,13 +418,16 @@ def wikidata_items_count(bounds, isa_filter=None):
 
     return q.count()
 
-def wikidata_isa_counts(bounds):
+def wikidata_isa_counts(bounds, isa_filter=None):
     db_bbox = make_envelope(bounds)
 
     q = (
         model.Item.query.join(model.ItemLocation)
         .filter(func.ST_Covers(db_bbox, model.ItemLocation.location))
     )
+
+    if isa_filter:
+        q = add_isa_filter(q, isa_filter)
 
     db_items = q.all()
 
