@@ -26,6 +26,43 @@ osm_type_enum = postgresql.ENUM(
     "node", "way", "relation", name="osm_type_enum", metadata=Base.metadata
 )
 
+re_lau_code = re.compile(r"^[A-Z]{2}([^A-Z].+)$")  # 'LAU (local administrative unit)'
+
+property_map = [
+    ("P238", ["iata"], "IATA airport code"),
+    ("P239", ["icao"], "ICAO airport code"),
+    ("P240", ["faa", "ref"], "FAA airport code"),
+    ("P296", ["ref", "ref:train", "railway:ref"], "station code"),
+    ("P300", ["ISO3166-2"], "ISO 3166-2 code"),
+    ("P359", ["ref:rce"], "Rijksmonument ID"),
+    ("P590", ["ref:gnis", "GNISID", "gnis:id", "gnis:feature_id"], "USGS GNIS ID"),
+    ("P649", ["ref:nrhp"], "NRHP reference number"),
+    ("P722", ["uic_ref"], "UIC station code"),
+    ("P782", ["ref"], "LAU (local administrative unit)"),
+    ("P836", ["ref:gss"], "UK Government Statistical Service code"),
+    ("P856", ["website", "contact:website", "url"], "website"),
+    ("P882", ["nist:fips_code"], "FIPS 6-4 (US counties)"),
+    ("P901", ["ref:fips"], "FIPS 10-4 (countries and regions)"),
+    # A UIC id can be a IBNR, but not every IBNR is an UIC id
+    ("P954", ["uic_ref"], "IBNR ID"),
+    ("P981", ["ref:woonplaatscode"], "BAG code for Dutch residencies"),
+    ("P1216", ["HE_ref"], "National Heritage List for England number"),
+    ("P2253", ["ref:edubase"], "EDUBase URN"),
+    ("P2815", ["esr:user", "ref", "ref:train"], "ESR station code"),
+    ("P3425", ["ref", "ref:SIC"], "Natura 2000 site ID"),
+    ("P3562", ["seamark:light:reference"], "Admiralty number"),
+    (
+        "P4755",
+        ["ref", "ref:train", "ref:crs", "crs", "nat_ref"],
+        "UK railway station code",
+    ),
+    ("P4803", ["ref", "ref:train"], "Amtrak station code"),
+    ("P6082", ["nycdoitt:bin"], "NYC Building Identification Number"),
+    ("P5086", ["ref"], "FIPS 5-2 alpha code (US states)"),
+    ("P5087", ["ref:fips"], "FIPS 5-2 numeric code (US states)"),
+    ("P5208", ["ref:bag"], "BAG building ID for Dutch buildings"),
+]
+
 
 class Item(Base):
     __tablename__ = "item"
@@ -286,6 +323,42 @@ class Item(Base):
             return text
 
         return text[: first_end_p_tag + len(close_tag)]
+
+    def get_identifiers_tags(self):
+        tags = defaultdict(list)
+        for claim, osm_keys, label in property_map:
+            values = [
+                i["mainsnak"]["datavalue"]["value"]
+                for i in self.claims.get(claim, [])
+                if "datavalue" in i["mainsnak"]
+            ]
+            if not values:
+                continue
+            if claim == "P782":
+                values += [
+                    m.group(1) for m in (re_lau_code.match(v) for v in values) if m
+                ]
+            for osm_key in osm_keys:
+                tags[osm_key].append((values, label))
+        return dict(tags)
+
+    def get_identifiers(self):
+        ret = {}
+        for claim, osm_keys, label in property_map:
+            values = [
+                i["mainsnak"]["datavalue"]["value"]
+                for i in self.claims.get(claim, [])
+                if "datavalue" in i["mainsnak"]
+            ]
+            if not values:
+                continue
+            if claim == "P782":
+                values += [
+                    m.group(1) for m in (re_lau_code.match(v) for v in values) if m
+                ]
+            for osm_key in osm_keys:
+                ret[label] = values
+        return ret
 
 
 # class Claim(Base):
