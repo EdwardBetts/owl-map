@@ -38,6 +38,14 @@ skip_tags = {
 }
 
 def get_country_iso3166_1(lat, lon):
+    """
+    For a given lat/lon return a set of ISO country codes.
+
+    Also cache the country code in the global object.
+
+    Normally there should be only one country.
+    """
+
     point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), srid)
     alpha2_codes = set()
     q = model.Polygon.query.filter(func.ST_Covers(model.Polygon.way, point),
@@ -57,7 +65,18 @@ def is_street_number_first(lat, lon):
         return True
 
     alpha2 = get_country_iso3166_1(lat, lon)
-    alpha2_number_first = {'GB', 'IE', 'US', 'MX', 'CA', 'FR', 'AU', 'NZ', 'ZA'}
+    # Incomplete list of countries that put street number first.
+    alpha2_number_first = {
+        'GB',  # United Kingdom
+        'IE',  # Ireland
+        'US',  # United States
+        'MX',  # Mexico
+        'CA',  # Canada
+        'FR',  # France
+        'AU',  # Australia
+        'NZ',  # New Zealand
+        'ZA',  # South Africa
+    }
 
     return bool(alpha2_number_first & alpha2)
 
@@ -92,6 +111,7 @@ def make_envelope_around_point(lat, lon, distance):
     return func.ST_MakeEnvelope(west, south, east, north, srid)
 
 def drop_way_area(tags):
+    """ Remove the way_area field from a tags dict. """
     if "way_area" in tags:
         del tags["way_area"]
     return tags
@@ -122,6 +142,8 @@ def get_part_of(table_name, src_id, bbox):
     } for osm_id, tags, area in conn.execute(s)]
 
 def get_and_save_item(qid):
+    """ Download an item from Wikidata and cache it in the database. """
+
     entity = wikidata_api.get_entity(qid)
     entity_qid = entity["id"]
     if entity_qid != qid:
@@ -739,6 +761,8 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
     return nearby
 
 def get_item(item_id):
+    """ Retrieve a Wikidata item, either from the database or from Wikidata. """
+
     item = model.Item.query.get(item_id)
     return item or get_and_save_item(f"Q{item_id}")
 
