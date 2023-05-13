@@ -83,8 +83,8 @@ def get_hit_name(hit):
     if len(address) == 1:
         return n1
 
-    country = address.pop("country")
-    country_code = address.pop("country_code")
+    country = address.pop("country", None)
+    country_code = address.pop("country_code", None)
     if country_code:
         country_code == country_code.lower()
 

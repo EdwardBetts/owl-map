@@ -1,12 +1,12 @@
 #!/usr/bin/python3.9
 
 from flask import (Flask, render_template, request, jsonify, redirect, url_for, g,
-                   flash, session, Response, stream_with_context)
+                   flash, session, Response, stream_with_context, abort, send_file)
 from sqlalchemy import func
 from sqlalchemy.sql.expression import update
 from matcher import (nominatim, model, database, commons, wikidata, wikidata_api,
                      osm_oauth, edit, mail, api, error_mail)
-from werkzeug.debug.tbtools import get_current_traceback
+# from werkzeug.debug.tbtools import get_current_traceback
 from matcher.data import property_map
 from time import time, sleep
 from requests_oauthlib import OAuth1Session
@@ -19,6 +19,7 @@ import json
 import GeoIP
 import re
 import maxminddb
+import sqlalchemy
 
 srid = 4326
 re_point = re.compile(r'^POINT\((.+) (.+)\)$')
@@ -54,27 +55,27 @@ def dict_repr_values(d):
     return {key: repr(value) for key, value in d.items()}
 
 
-@app.errorhandler(werkzeug.exceptions.InternalServerError)
-def exception_handler(e):
-    tb = get_current_traceback()
-    last_frame = next(frame for frame in reversed(tb.frames) if not frame.is_library)
-    last_frame_args = inspect.getargs(last_frame.code)
-    if request.path.startswith("/api/"):
-        return cors_jsonify({
-            "success": False,
-            "error": tb.exception,
-            "traceback": tb.plaintext,
-            "locals": dict_repr_values(last_frame.locals),
-            "last_function": {
-                "name": tb.frames[-1].function_name,
-                "args": repr(last_frame_args),
-            },
-        }), 500
-
-    return render_template('show_error.html',
-                           tb=tb,
-                           last_frame=last_frame,
-                           last_frame_args=last_frame_args), 500
+# @app.errorhandler(werkzeug.exceptions.InternalServerError)
+# def exception_handler(e):
+#     tb = get_current_traceback()
+#     last_frame = next(frame for frame in reversed(tb.frames) if not frame.is_library)
+#     last_frame_args = inspect.getargs(last_frame.code)
+#     if request.path.startswith("/api/"):
+#         return cors_jsonify({
+#             "success": False,
+#             "error": tb.exception,
+#             "traceback": tb.plaintext,
+#             "locals": dict_repr_values(last_frame.locals),
+#             "last_function": {
+#                 "name": tb.frames[-1].function_name,
+#                 "args": repr(last_frame_args),
+#             },
+#         }), 500
+# 
+#     return render_template('show_error.html',
+#                            tb=tb,
+#                            last_frame=last_frame,
+#                            last_frame_args=last_frame_args), 500
 
 def cors_jsonify(*args, **kwargs):
     response = jsonify(*args, **kwargs)
@@ -113,8 +114,8 @@ def geoip_user_record():
 
 def get_user_location():
     remote_ip = request.args.get('ip', request.remote_addr)
-    maxmind = maxminddb_reader.get(remote_ip)["location"]
-    return maxmind["location"] if maxmind else None
+    maxmind = maxminddb_reader.get(remote_ip)
+    return maxmind.get("location") if maxmind else None
 
 
 @app.route("/")
@@ -138,6 +139,12 @@ def isa_page(item_id):
     item = api.get_item(item_id)
 
     if request.method == "POST":
+        tag_or_key = request.form["tag_or_key"]
+        extra = model.ItemExtraKeys(item=item, tag_or_key=tag_or_key)
+        database.session.add(extra)
+        database.session.commit()
+        flash("extra OSM tag/key added")
+
         return redirect(url_for(request.endpoint, item_id=item_id))
 
     q = model.ItemExtraKeys.query.filter_by(item=item)
@@ -240,12 +247,19 @@ def identifier_page(pid):
 def map_start_page():
     loc = get_user_location()
 
+    if loc:
+        lat, lon = loc["latitude"], loc["longitude"]
+        radius = loc["accuracy_radius"]
+    else:
+        lat, lon = 42.2917, -85.5872
+        radius = 5
+
     return redirect(url_for(
         'map_location',
-        lat=f'{loc["latitude"]:.5f}',
-        lon=f'{loc["longitude"]:.5f}',
+        lat=f'{lat:.5f}',
+        lon=f'{lon:.5f}',
         zoom=16,
-        radius=loc["accuracy_radius"],
+        radius=radius,
         ip=request.args.get('ip'),
     ))
 
@@ -285,8 +299,21 @@ def search_page():
 @app.route("/map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lon>")
 def map_location(zoom, lat, lon):
     qid = request.args.get("item")
+    isa_param = request.args.get("isa")
     if qid:
         api.get_item(qid[1:])
+
+    isa_list = []
+    if isa_param:
+        for isa_qid in isa_param.split(";"):
+            isa = api.get_item(isa_qid[1:])
+            if not isa:
+                continue
+            cur = {
+                "qid": isa.qid,
+                "label": isa.label(),
+            }
+            isa_list.append(cur)
 
     return render_template(
         "map.html",
@@ -298,7 +325,38 @@ def map_location(zoom, lat, lon):
         username=get_username(),
         mode="map",
         q=None,
+        item_type_filter=isa_list,
     )
+
+
+@app.route("/item/Q<int:item_id>")
+def lookup_item(item_id):
+    item = api.get_item(item_id)
+    if not item:
+        # TODO: show nicer page for Wikidata item not found
+        return abort(404)
+
+    try:
+        lat, lon = item.locations[0].get_lat_lon()
+    except IndexError:
+        # TODO: show nicer page for Wikidata item without coordinates
+        return abort(404)
+
+    return render_template(
+        "map.html",
+        active_tab="map",
+        zoom=16,
+        lat=lat,
+        lon=lon,
+        username=get_username(),
+        mode="map",
+        q=None,
+        qid=item.qid,
+        item_type_filter=[],
+    )
+
+    url = url_for("map_location", zoom=16, lat=lat, lon=lon, item=item.qid)
+    return redirect(url)
 
 
 @app.route("/search/map")
@@ -390,6 +448,15 @@ def api_wikidata_items():
     isa_filter = read_isa_filter_param()
 
     ret = api.wikidata_items(bounds, isa_filter=isa_filter)
+
+    t1 = time() - t0
+    return cors_jsonify(success=True, duration=t1, **ret)
+
+@app.route("/api/1/place/<osm_type>/<int:osm_id>")
+def api_place_items(osm_type, osm_id):
+    t0 = time()
+
+    ret = api.get_place_items(osm_type, osm_id)
 
     t1 = time() - t0
     return cors_jsonify(success=True, duration=t1, **ret)
@@ -540,7 +607,11 @@ def api_search():
         hit["name"] = nominatim.get_hit_name(hit)
         hit["label"] = nominatim.get_hit_label(hit)
         hit["address"] = list(hit["address"].items())
-        hit["identifier"] = f"{hit['osm_type']}/{hit['osm_id']}"
+        if "osm_type" in hit and "osm_id" in hit:
+            hit["identifier"] = f"{hit['osm_type']}/{hit['osm_id']}"
+        else:
+            print(hit)
+            print(q)
 
     return cors_jsonify(success=True, hits=hits)
 
@@ -803,6 +874,18 @@ def api_save_changeset(session_id):
     mock = g.user.mock_upload
     api_call = api_mock_save_changeset if mock else api_real_save_changeset
     return api_call(session_id)
+
+
+@app.route("/sql", methods=["GET", "POST"])
+def run_sql():
+    if request.method != "POST":
+        return render_template("run_sql.html")
+
+    sql = request.form["sql"]
+    conn = database.session.connection()
+    result = conn.execute(sqlalchemy.text(sql))
+
+    return render_template("run_sql.html", result=result)
 
 
 def api_real_save_changeset(session_id):

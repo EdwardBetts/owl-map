@@ -5,7 +5,6 @@ import json
 import math
 import user_agents
 import re
-import pattern.en
 from datetime import date
 from num2words import num2words
 
@@ -160,18 +159,6 @@ def is_in_range(address_range, address):
     return False
 
 
-def pluralize_label(label):
-    text = label["value"]
-    if label["language"] != "en":
-        return text
-
-    # pattern.en.pluralize has the plural of 'mine' as 'ours'
-    if text == "mine":
-        return "mines"
-
-    return pattern.en.pluralize(text)
-
-
 def format_wikibase_time(v):
     p = v["precision"]
     t = v["time"]
@@ -180,11 +167,12 @@ def format_wikibase_time(v):
     # example: https://www.wikidata.org/wiki/Q108266998
 
     if p == 11:
-        return date.fromisoformat(t[1:11]).strftime("%d %B %Y")
+        return date.fromisoformat(t[1:11]).strftime("%-d %B %Y")
     if p == 10:
         return date.fromisoformat(t[1:8] + "-01").strftime("%B %Y")
     if p == 9:
         return t[1:5]
     if p == 7:
         century = ((int(t[:5]) - 1) // 100) + 1
-        return num2words(century, to="ordinal_num") + " century"
+        end = " BC" if century < 0 else ""
+        return num2words(abs(century), to="ordinal_num") + " century" + end

@@ -38,6 +38,14 @@ skip_tags = {
 }
 
 def get_country_iso3166_1(lat, lon):
+    """
+    For a given lat/lon return a set of ISO country codes.
+
+    Also cache the country code in the global object.
+
+    Normally there should be only one country.
+    """
+
     point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), srid)
     alpha2_codes = set()
     q = model.Polygon.query.filter(func.ST_Covers(model.Polygon.way, point),
@@ -57,7 +65,18 @@ def is_street_number_first(lat, lon):
         return True
 
     alpha2 = get_country_iso3166_1(lat, lon)
-    alpha2_number_first = {'GB', 'IE', 'US', 'MX', 'CA', 'FR', 'AU', 'NZ', 'ZA'}
+    # Incomplete list of countries that put street number first.
+    alpha2_number_first = {
+        'GB',  # United Kingdom
+        'IE',  # Ireland
+        'US',  # United States
+        'MX',  # Mexico
+        'CA',  # Canada
+        'FR',  # France
+        'AU',  # Australia
+        'NZ',  # New Zealand
+        'ZA',  # South Africa
+    }
 
     return bool(alpha2_number_first & alpha2)
 
@@ -92,6 +111,7 @@ def make_envelope_around_point(lat, lon, distance):
     return func.ST_MakeEnvelope(west, south, east, north, srid)
 
 def drop_way_area(tags):
+    """ Remove the way_area field from a tags dict. """
     if "way_area" in tags:
         del tags["way_area"]
     return tags
@@ -122,6 +142,8 @@ def get_part_of(table_name, src_id, bbox):
     } for osm_id, tags, area in conn.execute(s)]
 
 def get_and_save_item(qid):
+    """ Download an item from Wikidata and cache it in the database. """
+
     entity = wikidata_api.get_entity(qid)
     entity_qid = entity["id"]
     if entity_qid != qid:
@@ -396,7 +418,6 @@ def add_isa_filter(q, isa_qids):
     )
 
     subclass_qid = {qid for qid, in q_subclass.all()}
-    # print(subclass_qid)
 
     isa = func.jsonb_path_query_array(
         model.Item.claims,
@@ -419,13 +440,16 @@ def wikidata_items_count(bounds, isa_filter=None):
 
     return q.count()
 
-def wikidata_isa_counts(bounds):
+def wikidata_isa_counts(bounds, isa_filter=None):
     db_bbox = make_envelope(bounds)
 
     q = (
         model.Item.query.join(model.ItemLocation)
         .filter(func.ST_Covers(db_bbox, model.ItemLocation.location))
     )
+
+    if isa_filter:
+        q = add_isa_filter(q, isa_filter)
 
     db_items = q.all()
 
@@ -605,7 +629,11 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
     item_id = item.item_id
     item_is_linear_feature = item.is_linear_feature()
     item_is_street = item.is_street()
-    item_names = {n.lower() for n in item.names().keys()}
+    item_names_dict = item.names()
+    if item_names_dict:
+        item_names = {n.lower() for n in item_names_dict.keys()}
+    else:
+        item_names = set()
 
     check_is_street_number_first(item.locations[0].get_lat_lon())
 
@@ -702,6 +730,8 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
 
         shape = "area" if table == "polygon" else table
 
+        item_identifier_tags = item.get_identifiers_tags()
+
         cur = {
             "identifier": f"{osm_type}/{osm_id}",
             "type": osm_type,
@@ -733,6 +763,8 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
     return nearby
 
 def get_item(item_id):
+    """ Retrieve a Wikidata item, either from the database or from Wikidata. """
+
     item = model.Item.query.get(item_id)
     return item or get_and_save_item(f"Q{item_id}")
 
@@ -763,6 +795,11 @@ def check_is_street_number_first(latlng):
     g.street_number_first = is_street_number_first(*latlng)
 
 def item_detail(item):
+    unsupported_relation_types = {
+        'Q194356',   # wind farm
+        'Q2175765',  # tram stop
+    }
+
     locations = [list(i.get_lat_lon()) for i in item.locations]
     if not hasattr(g, 'street_number_first'):
         g.street_number_first = is_street_number_first(*locations[0])
@@ -783,6 +820,11 @@ def item_detail(item):
         })
 
     isa_items = [get_item(isa["numeric-id"]) for isa in item.get_isa()]
+    isa_lookup = {isa.qid: isa for isa in isa_items}
+
+    wikipedia_links = [{"lang": site[:-4], "title": link["title"]}
+                       for site, link in sorted(item.sitelinks.items())
+                       if site.endswith("wiki") and len(site) < 8]
 
     d = {
         "qid": item.qid,
@@ -797,10 +839,20 @@ def item_detail(item):
         "p1619": item.time_claim("P1619"),
         "p576": item.time_claim("P576"),
         "heritage_designation": heritage_designation,
+        "wikipedia": wikipedia_links,
+        "identifiers": item.get_identifiers(),
     }
 
     if aliases := item.get_aliases():
         d["aliases"] = aliases
+
+    if "commonswiki" in item.sitelinks:
+        d["commons"] = item.sitelinks["commonswiki"]["title"]
+
+    unsupported = isa_lookup.keys() & unsupported_relation_types
+    if unsupported:
+        d["unsupported_relation_types"] = [isa for isa in d["isa_list"]
+                                           if isa["qid"] in isa_lookup]
 
     return d
 
@@ -892,3 +944,21 @@ def isa_incremental_search(search_terms):
         }
         ret.append(cur)
     return ret
+
+def get_place_items(osm_type, osm_id):
+    src_id = osm_id * {'way': 1, 'relation': -1}[osm_type]
+
+    q = (model.Item.query
+                   .join(model.ItemLocation)
+                   .join(model.Polygon, func.ST_Covers(model.Polygon.way, model.ItemLocation.location))
+                   .filter(model.Polygon.src_id == src_id))
+    # sql = q.statement.compile(compile_kwargs={"literal_binds": True})
+
+    item_count = q.count()
+    items = []
+    for item in q:
+        keys = ["item_id", "labels", "descriptions", "aliases", "sitelinks", "claims"]
+        item_dict = {key: getattr(item, key) for key in keys}
+        items.append(item_dict)
+
+    return {"count": item_count, "items": items}
