@@ -1,5 +1,9 @@
-import requests
+"""Use mediawiki API to look up images on Wikimedia Commons."""
+
 import urllib.parse
+
+import requests
+
 from . import utils
 
 commons_start = "http://commons.wikimedia.org/wiki/Special:FilePath/"
@@ -7,11 +11,13 @@ commons_url = "https://www.wikidata.org/w/api.php"
 page_size = 50
 
 
-def commons_uri_to_filename(uri):
+def commons_uri_to_filename(uri: str) -> str:
+    """Given the URI for a file on commons return the filename of the file."""
     return urllib.parse.unquote(utils.drop_start(uri, commons_start))
 
 
-def api_call(params):
+def api_call(params: dict[str, str | int]) -> requests.models.Response:
+    """Make an API call."""
     call_params = {
         "format": "json",
         "formatversion": 2,
@@ -22,6 +28,7 @@ def api_call(params):
 
 
 def image_detail(filenames, thumbheight=None, thumbwidth=None):
+    """Detail for multiple images."""
     params = {
         "action": "query",
         "prop": "imageinfo",
