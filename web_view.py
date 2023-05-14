@@ -1,4 +1,4 @@
-#!/usr/bin/python3.9
+#!/usr/bin/python3
 
 from flask import (Flask, render_template, request, jsonify, redirect, url_for, g,
                    flash, session, Response, stream_with_context, abort, send_file)
