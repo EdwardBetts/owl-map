@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="container my-2">
+
+  <form method="POST">
+    <div class="mb-3">
+      <label for="sql" class="form-label">SQL</label>
+      <textarea class="form-control" id="sql" name="sql" rows="6">{{ request.form.sql }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">run</button>
+  </form>
+
+  {% if result %}
+    {% for row in result %}
+      <pre>{{ row }}</pre>
+    {% endfor %}
+  {% endif %}
+
+</div>
+{% endblock %}
