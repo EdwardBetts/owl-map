@@ -1,21 +1,24 @@
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.schema import ForeignKey, Column
-from sqlalchemy.orm import relationship, column_property, deferred, backref
-from sqlalchemy import func
-from sqlalchemy.types import Integer, String, Float, Boolean, DateTime, Text, BigInteger
-from sqlalchemy.dialects import postgresql
-from sqlalchemy.sql.expression import cast
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.orm.collections import attribute_mapped_collection
-from geoalchemy2 import Geometry
-from collections import defaultdict
-from flask_login import UserMixin
-from .database import session, now_utc
-from . import wikidata, utils, mail
 import json
 import re
+import typing
+from collections import defaultdict
+from typing import Any
+
+from flask_login import UserMixin
+from geoalchemy2 import Geometry
+from sqlalchemy import func
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import backref, column_property, deferred, relationship
+from sqlalchemy.orm.collections import attribute_mapped_collection
+from sqlalchemy.schema import Column, ForeignKey
+from sqlalchemy.sql.expression import cast
+from sqlalchemy.types import BigInteger, Boolean, DateTime, Float, Integer, String, Text
+
+from . import mail, utils, wikidata
+from .database import now_utc, session
 
 Base = declarative_base()
 Base.query = session.query_property()
@@ -63,15 +66,19 @@ property_map = [
     ("P5208", ["ref:bag"], "BAG building ID for Dutch buildings"),
 ]
 
+T = typing.TypeVar("T", bound="Item")
+
 
 class Item(Base):
+    """Wikidata item."""
+
     __tablename__ = "item"
     item_id = Column(Integer, primary_key=True, autoincrement=False)
     labels = Column(postgresql.JSONB)
     descriptions = Column(postgresql.JSONB)
     aliases = Column(postgresql.JSONB)
     sitelinks = Column(postgresql.JSONB)
-    claims = Column(postgresql.JSONB)
+    claims = Column(postgresql.JSONB, nullable=False)
     lastrevid = Column(Integer, nullable=False, unique=True)
     locations = relationship(
         "ItemLocation", cascade="all, delete-orphan", backref="item"
@@ -87,37 +94,46 @@ class Item(Base):
     extracts = association_proxy("wiki_extracts", "extract")
 
     @classmethod
-    def get_by_qid(cls, qid):
+    def get_by_qid(cls: typing.Type[T], qid: str) -> T | None:
         if qid and len(qid) > 1 and qid[0].upper() == "Q" and qid[1:].isdigit():
-            return cls.query.get(qid[1:])
+            obj: T = cls.query.get(qid[1:])
+            return obj
+        return None
 
     @property
-    def wd_url(self):
+    def wd_url(self) -> str:
+        """Wikidata URL for item."""
         return f"https://www.wikidata.org/wiki/{self.qid}"
 
-    def get_claim(self, pid):
+    def get_claim(self, pid: str) -> list[dict[str, Any] | None]:
+        """List of claims for given Wikidata property ID."""
+        claims = typing.cast(dict[str, list[dict[str, Any]]], self.claims)
         return [
             i["mainsnak"]["datavalue"]["value"]
             if "datavalue" in i["mainsnak"]
             else None
-            for i in self.claims.get(pid, [])
+            for i in claims.get(pid, [])
         ]
 
-    def label(self, lang="en"):
-        if lang in self.labels:
-            return self.labels[lang]["value"]
-        elif "en" in self.labels:
-            return self.labels["en"]["value"]
+    def label(self, lang: str = "en") -> str:
+        """Label for this Wikidata item."""
+        labels = typing.cast(dict[str, dict[str, Any]], self.labels)
+        if lang in labels:
+            return typing.cast(str, labels[lang]["value"])
+        elif "en" in labels:
+            return typing.cast(str, labels["en"]["value"])
 
-        label_list = list(self.labels.values())
-        return label_list[0]["value"] if label_list else "[no label]"
+        label_list = list(labels.values())
+        return typing.cast(str, label_list[0]["value"]) if label_list else "[no label]"
 
-    def description(self, lang="en"):
-        if lang in self.descriptions:
-            return self.descriptions[lang]["value"]
-        elif "en" in self.descriptions:
-            return self.descriptions["en"]["value"]
-        return
+    def description(self, lang: str = "en") -> str | None:
+        """Return a description of the item."""
+        descriptions = typing.cast(dict[str, dict[str, Any]], self.descriptions)
+        if lang in descriptions:
+            return typing.cast(str, descriptions[lang]["value"])
+        elif "en" in descriptions:
+            return typing.cast(str, descriptions["en"]["value"])
+        return None
 
         d_list = list(self.descriptions.values())
         if d_list:
@@ -388,8 +404,11 @@ class ItemLocation(Base):
     qid = column_property("Q" + cast(item_id, String))
     pid = column_property("P" + cast(item_id, String))
 
-    def get_lat_lon(self):
-        return session.query(func.ST_Y(self.location), func.ST_X(self.location)).one()
+    def get_lat_lon(self) -> tuple[float, float]:
+        """Get latitude and longitude of item."""
+        loc: tuple[float, float]
+        loc = session.query(func.ST_Y(self.location), func.ST_X(self.location)).one()
+        return loc
 
 
 def location_objects(coords):
@@ -501,7 +520,8 @@ class Polygon(MapMixin, Base):
         return cls.query.get(src_id)
 
     @property
-    def type(self):
+    def type(self) -> str:
+        """Polygon is either a way or a relation."""
         return "way" if self.src_id > 0 else "relation"
 
     @declared_attr
@@ -509,11 +529,14 @@ class Polygon(MapMixin, Base):
         return column_property(func.ST_Area(cls.way, False), deferred=True)
 
     @hybrid_property
-    def area_in_sq_km(self):
+    def area_in_sq_km(self) -> float:
+        """Size of area in square km."""
         return self.area / (1000 * 1000)
 
 
 class User(Base, UserMixin):
+    """User."""
+
     __tablename__ = "user"
     id = Column(Integer, primary_key=True)
     username = Column(String)
@@ -537,7 +560,8 @@ class User(Base, UserMixin):
     osm_oauth_token = Column(String)
     osm_oauth_token_secret = Column(String)
 
-    def is_active(self):
+    def is_active(self) -> bool:
+        """User is active."""
         return self.active
 
 
@@ -554,6 +578,8 @@ class EditSession(Base):
 
 
 class Changeset(Base):
+    """An OSM Changeset generated by this tool."""
+
     __tablename__ = "changeset"
     id = Column(BigInteger, primary_key=True)
     created = Column(DateTime)
@@ -573,6 +599,8 @@ class Changeset(Base):
 
 
 class ChangesetEdit(Base):
+    """Record details of edits within a changeset."""
+
     __tablename__ = "changeset_edit"
 
     changeset_id = Column(BigInteger, ForeignKey("changeset.id"), primary_key=True)
@@ -585,28 +613,37 @@ class ChangesetEdit(Base):
 
 
 class SkipIsA(Base):
+    """Ignore this item type when walking the Wikidata subclass graph."""
+
     __tablename__ = "skip_isa"
     item_id = Column(Integer, ForeignKey("item.item_id"), primary_key=True)
+    qid = column_property("Q" + cast(item_id, String))
 
     item = relationship("Item")
 
 
 class ItemExtraKeys(Base):
+    """Extra tag or key to consider for an Wikidata item type."""
+
     __tablename__ = "item_extra_keys"
     item_id = Column(Integer, ForeignKey("item.item_id"), primary_key=True)
     tag_or_key = Column(String, primary_key=True)
     note = Column(String)
+    qid = column_property("Q" + cast(item_id, String))
 
     item = relationship("Item")
 
 
 class Extract(Base):
+    """First paragraph from Wikipedia."""
+
     __tablename__ = "extract"
 
     item_id = Column(Integer, ForeignKey("item.item_id"), primary_key=True)
     site = Column(String, primary_key=True)
     extract = Column(String, nullable=False)
 
-    def __init__(self, site, extract):
+    def __init__(self, site: str, extract: str):
+        """Initialise the object."""
         self.site = site
         self.extract = extract
