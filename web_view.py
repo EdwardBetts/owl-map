@@ -380,20 +380,8 @@ def search_map_page():
     )
 
 
-@app.route("/old_search")
-def old_search_page():
-    q = flask.request.args.get("q")
-    if not q:
-        return flask.render_template("search.html", hits=None, bbox_list=None)
-    hits = nominatim.lookup(q)
-    for hit in hits:
-        if "geotext" in hit:
-            del hit["geotext"]
-    bbox = [hit["boundingbox"] for hit in hits]
-    return flask.render_template("search.html", hits=hits, bbox_list=bbox)
-
-
-def read_bounds_param():
+def read_bounds_param() -> list[float]:
+    """Read bounds parameter."""
     return [float(i) for i in flask.request.args["bounds"].split(",")]
 
 
