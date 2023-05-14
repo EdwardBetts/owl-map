@@ -4,7 +4,7 @@ import re
 import typing
 from collections import Counter, defaultdict
 
-from flask import current_app, g
+import flask
 from sqlalchemy import and_, func, or_, text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import selectinload
@@ -59,7 +59,7 @@ def get_country_iso3166_1(lat: float, lon: float) -> set[str]:
             continue
         alpha2_codes.add(alpha2)
 
-    g.alpha2_codes = alpha2_codes
+    flask.g.alpha2_codes = alpha2_codes
     return alpha2_codes
 
 
@@ -538,7 +538,7 @@ def get_tag_filter(tags, tag_list):
 
 
 def get_preset_translations():
-    app = current_app
+    app = flask.current_app
     country_language = {
         "AU": "en-AU",  # Australia
         "GB": "en-GB",  # United Kingdom
@@ -549,7 +549,7 @@ def get_preset_translations():
     ts_dir = app.config["ID_TAGGING_SCHEMA_DIR"]
     translation_dir = os.path.join(ts_dir, "dist", "translations")
 
-    for code in g.alpha2_codes:
+    for code in flask.g.alpha2_codes:
         lang_code = country_language.get("code")
         if not lang_code:
             continue
@@ -595,7 +595,7 @@ def get_presets_from_tags(ending, tags):
 
 
 def find_preset_file(k, v, ending):
-    app = current_app
+    app = flask.current_app
     ts_dir = app.config["ID_TAGGING_SCHEMA_DIR"]
     preset_dir = os.path.join(ts_dir, "data", "presets")
 
@@ -637,7 +637,7 @@ def address_from_tags(tags):
     if not all("addr:" + k in tags for k in keys):
         return
 
-    if g.street_number_first:
+    if flask.g.street_number_first:
         keys.reverse()
     return " ".join(tags["addr:" + k] for k in keys)
 
@@ -886,7 +886,9 @@ def get_item_street_addresses(item):
         for q in qualifiers["P670"]:
             number = q["datavalue"]["value"]
             address = (
-                f"{number} {street}" if g.street_number_first else f"{street} {number}"
+                f"{number} {street}"
+                if flask.g.street_number_first
+                else f"{street} {number}"
             )
             street_address.append(address)
 
@@ -894,7 +896,7 @@ def get_item_street_addresses(item):
 
 
 def check_is_street_number_first(latlng):
-    g.street_number_first = is_street_number_first(*latlng)
+    flask.g.street_number_first = is_street_number_first(*latlng)
 
 
 def item_detail(item):
@@ -904,8 +906,8 @@ def item_detail(item):
     }
 
     locations = [list(i.get_lat_lon()) for i in item.locations]
-    if not hasattr(g, "street_number_first"):
-        g.street_number_first = is_street_number_first(*locations[0])
+    if not hasattr(flask.g, "street_number_first"):
+        flask.g.street_number_first = is_street_number_first(*locations[0])
 
     image_filenames = item.get_claim("P18")
 
@@ -1005,7 +1007,7 @@ def wikidata_items(bounds, isa_filter=None):
 
 
 def missing_wikidata_items(qids, lat, lon):
-    g.street_number_first = is_street_number_first(lat, lon)
+    flask.g.street_number_first = is_street_number_first(lat, lon)
 
     db_items = []
     for qid in qids:
