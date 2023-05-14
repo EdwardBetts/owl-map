@@ -40,21 +40,20 @@ skip_tags = {
 }
 
 
-def get_country_iso3166_1(lat, lon):
+def get_country_iso3166_1(lat: float, lon: float) -> set[str]:
     """For a given lat/lon return a set of ISO country codes.
 
     Also cache the country code in the global object.
 
     Normally there should be only one country.
     """
-
     point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), srid)
-    alpha2_codes = set()
+    alpha2_codes: set[str] = set()
     q = model.Polygon.query.filter(
         func.ST_Covers(model.Polygon.way, point), model.Polygon.admin_level == "2"
     )
     for country in q:
-        alpha2 = country.tags.get("ISO3166-1")
+        alpha2: str = country.tags.get("ISO3166-1")
         if not alpha2:
             continue
         alpha2_codes.add(alpha2)
