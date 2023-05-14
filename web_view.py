@@ -80,29 +80,6 @@ def dict_repr_values(d):
     return {key: repr(value) for key, value in d.items()}
 
 
-# @app.errorhandler(werkzeug.exceptions.InternalServerError)
-# def exception_handler(e):
-#     tb = get_current_traceback()
-#     last_frame = next(frame for frame in reversed(tb.frames) if not frame.is_library)
-#     last_frame_args = inspect.getargs(last_frame.code)
-#     if request.path.startswith("/api/"):
-#         return cors_jsonify({
-#             "success": False,
-#             "error": tb.exception,
-#             "traceback": tb.plaintext,
-#             "locals": dict_repr_values(last_frame.locals),
-#             "last_function": {
-#                 "name": tb.frames[-1].function_name,
-#                 "args": repr(last_frame_args),
-#             },
-#         }), 500
-#
-#     return render_template('show_error.html',
-#                            tb=tb,
-#                            last_frame=last_frame,
-#                            last_frame_args=last_frame_args), 500
-
-
 def cors_jsonify(*args, **kwargs):
     response = jsonify(*args, **kwargs)
     response.headers["Access-Control-Allow-Origin"] = "*"
