@@ -91,10 +91,12 @@ def make_envelope(bounds):
 def get_bbox_centroid(bbox):
     bbox = make_envelope(bbox)
     centroid = database.session.query(func.ST_AsText(func.ST_Centroid(bbox))).scalar()
-    return reversed(re_point.match(centroid).groups())
+    m = re_point.match(centroid)
+    assert m
+    return reversed(m.groups())
 
 
-def make_envelope_around_point(lat, lon, distance):
+def make_envelope_around_point(lat: float, lon: float, distance: float):
     conn = database.session.connection()
 
     p = func.ST_MakePoint(lon, lat)
@@ -170,7 +172,7 @@ def get_and_save_item(qid: str) -> model.Item | None:
     entity_qid = entity["id"]
     if entity_qid != qid:
         print(f"redirect {qid} -> {entity_qid}")
-        item = model.Item.query.get(entity_qid[1:])
+        item: model.Item | None = model.Item.query.get(entity_qid[1:])
         return item
 
     if "claims" not in entity:
