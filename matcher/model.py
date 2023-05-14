@@ -107,7 +107,7 @@ class Item(Base):
 
     def get_claim(self, pid: str) -> list[dict[str, Any] | None]:
         """List of claims for given Wikidata property ID."""
-        claims = typing.cast(dict[str, list[dict[str, Any]]], self.claims)
+        claims = typing.cast(wikidata.Claims, self.claims)
         return [
             i["mainsnak"]["datavalue"]["value"]
             if "datavalue" in i["mainsnak"]
@@ -221,10 +221,12 @@ class Item(Base):
 
         return dict(d) or None
 
-    def get_isa(self):
+    def get_isa(self) -> list[dict[str, int | str]]:
+        """Get item IDs of IsA items for this item."""
         isa_list = []
         of_property = "P642"
-        for claim in self.claims.get("P31", []):
+        claims = typing.cast(wikidata.Claims, self.claims)
+        for claim in claims.get("P31", []):
             qualifiers = claim.get("qualifiers", {})
             if "datavalue" in claim["mainsnak"]:
                 isa_list.append(claim["mainsnak"]["datavalue"]["value"])
