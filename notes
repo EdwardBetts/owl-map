@@ -1,0 +1,406 @@
+# vim: spell:tw=80 ft=markdown
+
+Extracted items from data dump that include "P625" with the quotes. There are 8,398,490 matching items.
+
+Nearest-Neighbour Searching
+
+https://postgis.net/workshops/postgis-intro/knn.html
+
+---
+Use recent changes API to update local Wikidata entity mirror.
+
+Need to handle new item, edit, delete, and undelete.
+
+For now we're just interested in items with coordinates, later we might care
+about languages, and classes.
+
+At some point we might keep track of redirects.
+
+Deletes
+-------
+Is the item in our database? If not then ignore it, if yes then delete it.
+
+New
+---
+Download full entity, check if it contains coordinates, if yes, then add to database, if not then ignore.
+
+Make a note of item ID and revid. Avoid downloading item again during update.
+
+Edits
+-----
+If the item is in our database and lastrevid is larger than the revid of the change then skip.
+
+Download full entity.
+
+If in our database and latest revision includes coordinates update item in
+database. If no coordinates then delete from our database.
+
+
+======
+Currently we have geographic objects represented by the Item class. We also want
+information about the type of object, languages and countries.
+
+How about a hierarchy with Item as the base class and GeoItem as a subclass for
+geographical objects. We can also have IsA, Language, and Country classes that
+derive from Item.
+
+Countries are a subclass of GeoItem.
+
+With the current design the Item table represents a cached copy of the latest
+version of the Wikidata item, no history is stored locally. This makes it had to
+keep track of changes over time.
+
+The same is true of the OSM data, we just keeping a copy of the most recent
+version.
+
+Instead we could store multiple revisions of Wikidata items. We want the latest
+version and any that has been considered part of a match with OSM.
+
+Which Wikidata revisions do we keep?
+
+1. latest revision
+2. revision used to generate match
+3. revision used in match checked by user
+
+Maybe a separate item revision table is too complex. We could just store JSON
+from a match in a table of OSM user uploads.
+
+===
+All countries have a P625 statement
+
+===
+cable-stayed bridge (Q158555)
+
+There are 786 bridges on OSM tagged with bridge:structure=cable-stayed. Some of
+these have a Wikidata tag but aren't tagged as a cable-stayed bridge in
+Wikidata. The Wikidata could be updated to tag them as a cable-stayed bridge.
+Something similar could be applied to other types.
+
+===
+Lots of items with coordinates don\'t have OSM tags/keys, either because they
+don\'t belong on the map or there isn\'t enough info in Wikidata.
+
+Need to search different properties for OSM tags, at least 'instance of',
+'use', 'sport' and 'religion'.
+
+Should start from items with an OSM tag first. Download all items with OSM tag,
+then walk subclass tree and download.
+
+===
+Test out a new design.
+
+===
+Make a status page that shows the size of each database table.
+===
+What should URLs look like, say I want to show lakes in lapland?
+
+https://osm.wikidata.link/matches?isa=Lake&location=Lapland
+
+===
+OSM & Wikidata pin map TODO list
+
+IsA list should support filtering
+
+===
+2021-06-17
+
+Candidate list should show street address. For example:
+
+https://alpha.osm.wikidata.link/map/17/40.01461/-105.28196?item=Q42384818
+---
+Preset could be more specific. For example mosque instead of place of worship.
+
+id-tagging-schema/data/presets/amenity/place_of_worship/muslim.json
+---
+candidates list should show object tags
+
+===
+2021-06-19
+
+* Rename from 'alpha' to 'v2'.
+* Use Flask-Babel to for i18n. Get translations from
+  https://www.microsoft.com/en-us/language/
+* Show total number of items
+* Show place name
+* Show aliases
+
+===
+2021-06-23
+
+Planning to update user IP location code. Should grab items within city or
+region. Need to handle IP that only resolves to a whole country. For example
+archive.org is 207.241.224.2, and just returns USA. The USA is too big to apply
+the matcher interface to.
+
+When trying to match the whole USA we should show the whole country and
+encourage the user to zoom in. Once the 
+
+---
+Map thoughts. Questions:
+
+What do we show to the user when the site loads?
+What happens when the user drags the map?
+What happens when the user changes zoom?
+How does searching change things?
+
+Starting scenarios:
+
+User enters IP that resolves to a big country, say USA. We show a map of the
+whole USA and ask them to zoom in. Once they've zoomed in we can show the total
+number of items and the item type facets.
+
+Find item type within Cambridge:
+
+``` SQL
+select jsonb_path_query(claims, '$.P31[*].mainsnak.datavalue.value.id') as isa, count(*) as num
+from item, item_location, planet_osm_polygon
+where item.item_id = item_location.item_id and osm_id=-295355 and ST_Covers(way, location) group by isa order by num;
+```
+
+Also need a to show a facet for items where item type is empty
+
+Find item type within California:
+``` SQL
+select jsonb_path_query(claims, '$.P31[*].mainsnak.datavalue.value.id') as isa, count(*) as num
+from item, item_location, planet_osm_polygon
+where item.item_id = item_location.item_id and osm_id=-165475 and ST_Intersects(way, location)
+group by isa order by num desc limit 20;
+```
+This query takes 26.5 seconds.
+
+England item count takes 1.5 seconds.
+
+``` SQL
+select count(distinct item_id)
+from item_location, planet_osm_polygon
+where osm_id=-58447 and ST_Covers(way, location);
+```
+
+===
+2021-06-25
+
+Library buildings (Q856584) in England. Query takes 3 seconds
+
+``` SQL
+select count(*)
+from item, item_location, planet_osm_polygon as loc
+where loc.osm_id=-58447
+    and jsonb_path_query_array(claims, '$.P31[*].mainsnak.datavalue.value.id') ? 'Q856584'
+    and item.item_id = item_location.item_id
+    and item_location.location && loc.way;
+```
+===
+2021-07-04
+
+TODO
+* Better error page than just 500 Internal Server Error.
+* Improve handling of Wikidata items without coordinates. Use different colour
+  for OSM Pin. Explain situation on item detail page. No need to look for matches.
+* DONE: Show spinner when looking for nearby OSM candidate matches.
+* DONE: Show message if no matches found.
+* Add 'building only match' switch
+* Two item pins on top of each other is a problem.
+
+2021-07-05
+
+Sometimes the selected OSM matches are incorrect. For example:
+
+https://v2.osm.wikidata.link/map/15/37.31390/-121.86338?item=Q83645632
+
+The item is linked to a node, a way and a relation. The node shows as a pin on
+the map, but isn't in the list of possible nearby matches. The way and relation
+both show in the list, but aren't selected.
+
+2021-07-07
+
+Logout link should come back to the same map location. Need to record the
+location somewhere. Could be in a cookie, constant updating of the logout
+URL, or have JavaScript that runs when the user follows the logout link.
+
+Search
+Should show a spinner so the user knows something is happening.
+Trigger search after first three characters have been entered.
+DONE: Style search hits so not so close to search box
+
+Highlight chosen search result.
+Close button to hide search results.
+DONE: Zoom to result bounds instead of zoom level 16.
+Should you be allowed to search while editing?
+
+DONE: Hide OSM candidate checkboxes if user not logged in.
+
+2021-07-10
+
+Exclude ways that are part of a boundary. Example:
+
+https://v2.osm.wikidata.link/map/18/42.37903/-71.11136?item=Q14715848
+
+2021-07-16
+
+Need better handling for OSM with wikidata tag but item has no coordinates. 
+
+Viewing a street shows too many yellow pins.
+https://v2.osm.wikidata.link/map/15/37.31221/-121.88869?item=Q89545422
+
+2021-07-17
+Could match on just name
+https://v2.osm.wikidata.link/map/18/50.21789/-5.28079?item=Q5288904
+
+2021-07-18
+Florida State Road 922 (Q2433226) is stored as multiple lines in the osm2pgsql
+database. Need to rebuild the database with the --multi-geometry so there is
+only one.
+
+2021-07-19
+After a save clicking on another item without closing edit panel causes
+problems. Need to trigger close_edit_list when opening item if upload_state is
+set to 'done'
+
+2021-07-22
+
+Example of a long road: Collins Avenue (Q652775)
+https://v2.osm.wikidata.link/map/19/25.86222/-80.12032?item=Q652775
+
+2021-08-04
+Use https://vue-select.org/ for item type filter.
+Show alert with spinner while count is running.
+Maybe we want to supply the item type filter as JSON and filter in the browser,
+no need to hit the server and database.
+Write documentation for the API.
+Speed up the item detail OSM nearby option.
+Use the sidebar to show list of items in the current view, so the user can
+go through the list and check them.
+OSM object polygon size is broken
+
+2021-08-05
+
+IsA search
+
+```sql
+SELECT 'Q' || item.item_id, item.labels->'en'->>'value' FROM item WHERE
+item.claims ? 'P1282' AND lower(jsonb_extract_path_text(item.labels, 'en',
+'value')) LIKE lower('%hotel%') AND length(jsonb_extract_path_text(item.labels,
+'en', 'value')) < 20;
+```
+
+2021-09-11
+
+Notes from Pixel 2
+
+Pin at the centroid of a polygon is to busy, especially with an item that links
+to multiple OSM objects. Object outline already on map, just need to connect
+outline to Wikidata markers. Could try and work out corners of rectangular
+buildings. Should link to ends nearest node for linear objects.
+
+Show warning when navigating away from map with edits.
+
+See WindowEventHandlers.onbeforeunload
+
+Option to clear edit list.
+
+---
+Ignore coordinates with a Google Maps reference. Example:
+
+https://www.wikidata.org/w/index.php?title=Q66228733&oldid=992964237
+
+---
+Check history for previous wikidata tags to warn mappers if a wikidata tag
+they're adding has previously been removed.
+
+Examples:
+    https://v2.osm.wikidata.link/map/17/52.18211/0.17756?item=Q6717455
+    and https://www.openstreetmap.org/way/143741201
+    https://www.openstreetmap.org/way/684624781
+
+---
+What happens when we moved the map?
+
+First we check the area visible on the map. If it is too large then there is
+nothing we can do, we give up and tell the user they need to zoom in.
+
+Otherwise we send the server a request for a count of the number of items in the
+current view. If the count is too high we abort and tell the user to zoom in.
+
+Once we know the area isn't too big and doesn't have too many items we want to
+make three requests to the server. First we make requests for the Wikidata items
+on the map another request for OSM objects with a Wikidata tag on the map. Both
+requests run at the same time. Once both requests complete we make another
+request to check for missing Wikidata items that were linked from OSM objects.
+
+---
+This is done
+
+https://v2.osm.wikidata.link/map/18/52.23270/0.21560?item=Q55099320
+should match: https://www.openstreetmap.org/node/2000849525
+
+Look for Tag:abandoned:railway=station
+
+---
+Need better handling for Wikidata redirects.
+
+Example: https://www.openstreetmap.org/way/130458959
+https://v2.osm.wikidata.link/map/18/51.36973/-2.81079?item=Q5117357
+
+---
+Consider 'OS grid reference' 
+https://www.wikidata.org/w/index.php?title=Q27082051&oldid=1336630735
+
+---
+Check for OpenStreetMap relation ID (P402) in Wikidata
+
+Display on details page. Highlight matching relation.
+
+example: https://www.wikidata.org/wiki/Q78078847
+
+---
+TODO
+
+* DONE: Add special code for matching watercourses that works like street matching
+* DONE: Frontend should catch API errors and show them
+* DONE: API calls should return errors in JSON
+
+* Run update code from systemd
+* Stop Wikidata update code from crashing when it hits an error
+* Add an option for 'select all' for linear features
+* Add a note to details page explaining street matching
+* Upload code to GitHub
+* Candidates list jumps when first object is selected, because message appears
+    at the top the list. Can be fixed by having a message there and replacing
+    it.
+
+IsA pages
+* Flesh out IsA pages
+* Allow users to add extra tags to IsA
+* Add option to update IsA
+
+Type filter
+* Include type filter QIDs in URL
+* Move type filter to modal box
+* Show item type description
+
+---
+Show note about relations for tram stops and windfarms
+
+---
+Show  dissolved, abolished or demolished date (P576) 
+https://map.osm.wikidata.link/map/18/40.74610/-73.99652?item=Q14707174
+
+---
+Get subclasses for one item type
+
+``` SQL
+select item_id, labels->'en'->'value' from item where jsonb_path_query_array(claims, '$."P279"[*]."mainsnak"."datavalue"."value"."id"'::jsonpath) ?| '{"Q718893"}';
+```
+
+Get subclasses for items with OSM tag/key
+
+``` SQL
+select item_id, labels->'en'->'value'
+	from item
+	where jsonb_path_query_array(claims, '$."P279"[*]."mainsnak"."datavalue"."value"."id"'::jsonpath)
+		?| array(select 'Q' || item_id from item where claims ? 'P1282');
+```
+
+---
+Shipyard results shouldn't include place=city
+https://map.osm.wikidata.link/map/18/50.89540/-1.38243?item=Q551401
