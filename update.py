@@ -14,7 +14,17 @@ database.init_db(DB_URL)
 entity_keys = {"labels", "sitelinks", "aliases", "claims", "descriptions", "lastrevid"}
 
 
-def handle_new(change):
+class Change(typing.TypedDict):
+    """Dict representing an edit in recent changes."""
+
+    title: str
+    timestamp: str
+    redirect: dict[str, typing.Any] | None
+    revid: int
+
+
+def handle_new(change: Change) -> None:
+    """Handle a new Wikidata item from the recent changes feed."""
     qid = change["title"]
     ts = change["timestamp"]
     if change["redirect"]:
@@ -57,7 +67,8 @@ def coords_equal(a: dict[str, typing.Any], b: dict[str, typing.Any]) -> bool:
     return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
 
 
-def handle_edit(change):
+def handle_edit(change: Change) -> None:
+    """Process an edit from recent changes."""
     qid = change["title"]
     item = model.Item.query.get(qid[1:])
     if not item:
@@ -101,6 +112,7 @@ def update_timestamp(timestamp: str) -> None:
 
 
 def update_database() -> None:
+    """Check recent changes and apply updates to local mirror of Wikidata."""
     with open("rc_timestamp") as f:
         start = f.read().strip()
 
