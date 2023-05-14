@@ -1,10 +1,11 @@
-from flask import current_app, g, request, has_request_context
+import smtplib
+import sys
+import traceback
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
 from pprint import pformat
-import smtplib
-import traceback
-import sys
+
+from flask import current_app, g, has_request_context, request
 
 
 def send_mail(subject, body, config=None):
@@ -71,7 +72,7 @@ def open_changeset_error(session_id, changeset, r):
     username = g.user.username
     body = f"""
 user: {username}
-page: {url}
+page: {r.url}
 
 message user: https://www.openstreetmap.org/message/new/{username}
 
