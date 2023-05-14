@@ -1,37 +1,61 @@
 #!/usr/bin/python3
 
-from flask import (Flask, render_template, request, jsonify, redirect, url_for, g,
-                   flash, session, Response, stream_with_context, abort, send_file)
+import json
+import re
+from time import sleep, time
+
+import flask_login
+import GeoIP
+import maxminddb
+import requests
+import sqlalchemy
+from flask import (
+    Flask,
+    Response,
+    abort,
+    flash,
+    g,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    stream_with_context,
+    url_for,
+)
+from lxml import etree
+from requests_oauthlib import OAuth1Session
 from sqlalchemy import func
 from sqlalchemy.sql.expression import update
-from matcher import (nominatim, model, database, commons, wikidata, wikidata_api,
-                     osm_oauth, edit, mail, api, error_mail)
-# from werkzeug.debug.tbtools import get_current_traceback
+
+from matcher import (
+    api,
+    commons,
+    database,
+    edit,
+    error_mail,
+    mail,
+    model,
+    nominatim,
+    osm_oauth,
+    wikidata,
+    wikidata_api,
+)
 from matcher.data import property_map
-from time import time, sleep
-from requests_oauthlib import OAuth1Session
-from lxml import etree
-import werkzeug.exceptions
-import inspect
-import flask_login
-import requests
-import json
-import GeoIP
-import re
-import maxminddb
-import sqlalchemy
+
+# from werkzeug.debug.tbtools import get_current_traceback
 
 srid = 4326
-re_point = re.compile(r'^POINT\((.+) (.+)\)$')
+re_point = re.compile(r"^POINT\((.+) (.+)\)$")
 
 app = Flask(__name__)
 app.debug = True
-app.config.from_object('config.default')
+app.config.from_object("config.default")
 error_mail.setup_error_mail(app)
 
 login_manager = flask_login.LoginManager(app)
-login_manager.login_view = 'login_route'
-osm_api_base = 'https://api.openstreetmap.org/api/0.6'
+login_manager.login_view = "login_route"
+osm_api_base = "https://api.openstreetmap.org/api/0.6"
 
 maxminddb_reader = maxminddb.open_database(app.config["GEOLITE2"])
 
@@ -39,7 +63,7 @@ DB_URL = "postgresql:///matcher"
 database.init_db(DB_URL)
 entity_keys = {"labels", "sitelinks", "aliases", "claims", "descriptions", "lastrevid"}
 
-re_qid = re.compile(r'^Q\d+$')
+re_qid = re.compile(r"^Q\d+$")
 
 
 @app.teardown_appcontext
@@ -50,6 +74,7 @@ def shutdown_session(exception=None):
 @app.before_request
 def global_user():
     g.user = flask_login.current_user._get_current_object()
+
 
 def dict_repr_values(d):
     return {key: repr(value) for key, value in d.items()}
@@ -71,16 +96,18 @@ def dict_repr_values(d):
 #                 "args": repr(last_frame_args),
 #             },
 #         }), 500
-# 
+#
 #     return render_template('show_error.html',
 #                            tb=tb,
 #                            last_frame=last_frame,
 #                            last_frame_args=last_frame_args), 500
 
+
 def cors_jsonify(*args, **kwargs):
     response = jsonify(*args, **kwargs)
     response.headers["Access-Control-Allow-Origin"] = "*"
     return response
+
 
 def check_for_tagged_qids(qids):
     tagged = set()
@@ -108,12 +135,12 @@ def check_for_tagged_qid(qid):
 def geoip_user_record():
     gi = GeoIP.open(app.config["GEOIP_DATA"], GeoIP.GEOIP_STANDARD)
 
-    remote_ip = request.get('ip', request.remote_addr)
+    remote_ip = request.get("ip", request.remote_addr)
     return gi.record_by_addr(remote_ip)
 
 
 def get_user_location():
-    remote_ip = request.args.get('ip', request.remote_addr)
+    remote_ip = request.args.get("ip", request.remote_addr)
     maxmind = maxminddb_reader.get(remote_ip)
     return maxmind.get("location") if maxmind else None
 
@@ -154,13 +181,15 @@ def isa_page(item_id):
     subclass_list = []
     for s in item.get_claim(subclass_property):
         subclass = api.get_item(s["numeric-id"])
-        subclass_list.append({
-            "qid": s["id"],
-            "item_id": s["numeric-id"],
-            "label": subclass.label(),
-            "description": subclass.description(),
-            "isa_page_url": url_for("isa_page", item_id=s["numeric-id"]),
-        })
+        subclass_list.append(
+            {
+                "qid": s["id"],
+                "item_id": s["numeric-id"],
+                "label": subclass.label(),
+                "description": subclass.description(),
+                "isa_page_url": url_for("isa_page", item_id=s["numeric-id"]),
+            }
+        )
 
     tags = api.get_tags_for_isa_item(item)
 
@@ -254,14 +283,16 @@ def map_start_page():
         lat, lon = 42.2917, -85.5872
         radius = 5
 
-    return redirect(url_for(
-        'map_location',
-        lat=f'{lat:.5f}',
-        lon=f'{lon:.5f}',
-        zoom=16,
-        radius=radius,
-        ip=request.args.get('ip'),
-    ))
+    return redirect(
+        url_for(
+            "map_location",
+            lat=f"{lat:.5f}",
+            lon=f"{lon:.5f}",
+            zoom=16,
+            radius=radius,
+            ip=request.args.get("ip"),
+        )
+    )
 
 
 @app.route("/documentation")
@@ -270,16 +301,14 @@ def documentation_page():
     username = user.username if user.is_authenticated else None
 
     return render_template(
-        "documentation.html",
-        active_tab="documentation",
-        username=username
+        "documentation.html", active_tab="documentation", username=username
     )
 
 
 @app.route("/search")
 def search_page():
     loc = get_user_location()
-    q = request.args.get('q')
+    q = request.args.get("q")
 
     user = flask_login.current_user
     username = user.username if user.is_authenticated else None
@@ -295,6 +324,7 @@ def search_page():
         mode="search",
         q=q,
     )
+
 
 @app.route("/map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lon>")
 def map_location(zoom, lat, lon):
@@ -327,6 +357,36 @@ def map_location(zoom, lat, lon):
         q=None,
         item_type_filter=isa_list,
     )
+
+
+@app.route("/item/Q<int:item_id>")
+def lookup_item(item_id):
+    item = api.get_item(item_id)
+    if not item:
+        # TODO: show nicer page for Wikidata item not found
+        return abort(404)
+
+    try:
+        lat, lon = item.locations[0].get_lat_lon()
+    except IndexError:
+        # TODO: show nicer page for Wikidata item without coordinates
+        return abort(404)
+
+    return render_template(
+        "map.html",
+        active_tab="map",
+        zoom=16,
+        lat=lat,
+        lon=lon,
+        username=get_username(),
+        mode="map",
+        q=None,
+        qid=item.qid,
+        item_type_filter=[],
+    )
+
+    url = url_for("map_location", zoom=16, lat=lat, lon=lon, item=item.qid)
+    return redirect(url)
 
 
 @app.route("/item/Q<int:item_id>")
@@ -398,10 +458,12 @@ def old_search_page():
 def read_bounds_param():
     return [float(i) for i in request.args["bounds"].split(",")]
 
+
 def read_isa_filter_param():
-    isa_param = request.args.get('isa')
+    isa_param = request.args.get("isa")
     if isa_param:
-        return set(qid.strip() for qid in isa_param.upper().split(','))
+        return set(qid.strip() for qid in isa_param.upper().split(","))
+
 
 @app.route("/api/1/location")
 def show_user_location():
@@ -416,6 +478,7 @@ def api_wikidata_items_count():
 
     t1 = time() - t0
     return cors_jsonify(success=True, count=count, duration=t1)
+
 
 @app.route("/api/1/isa_search")
 def api_isa_search():
@@ -452,6 +515,7 @@ def api_wikidata_items():
     t1 = time() - t0
     return cors_jsonify(success=True, duration=t1, **ret)
 
+
 @app.route("/api/1/place/<osm_type>/<int:osm_id>")
 def api_place_items(osm_type, osm_id):
     t0 = time()
@@ -478,9 +542,7 @@ def api_get_item(item_id):
     detail = api.item_detail(item)
     t1 = time() - t0
 
-    return cors_jsonify(success=True,
-                        duration=t1,
-                        **detail)
+    return cors_jsonify(success=True, duration=t1, **detail)
 
 
 @app.route("/api/1/item/Q<int:item_id>/tags")
@@ -491,25 +553,23 @@ def api_get_item_tags(item_id):
     osm_list = sorted(tags.keys())
     t1 = time() - t0
 
-    return cors_jsonify(success=True,
-                        qid=item.qid,
-                        tag_or_key_list=osm_list,
-                        tag_src=tags,
-                        duration=t1)
+    return cors_jsonify(
+        success=True, qid=item.qid, tag_or_key_list=osm_list, tag_src=tags, duration=t1
+    )
 
 
 def expand_street_name(from_names):
     ret = set(from_names)
     for name in from_names:
-        if any(name.startswith(st) for st in ('St ', 'St. ')):
-            first_space = name.find(' ')
+        if any(name.startswith(st) for st in ("St ", "St. ")):
+            first_space = name.find(" ")
             ret.add("Saint" + name[first_space:])
 
-        if ', ' in name:
+        if ", " in name:
             for n in set(ret):
                 comma = n.find(", ")
                 ret.add(name[:comma])
-        elif '/' in name:
+        elif "/" in name:
             for n in set(ret):
                 ret.extend(part.strip() for part in n.split("/"))
 
@@ -522,14 +582,12 @@ def api_find_osm_candidates(item_id):
     t0 = time()
     item = model.Item.query.get(item_id)
     if not item:
-        return cors_jsonify(success=True,
-                            qid=f'Q{item_id}',
-                            error="item doesn't exist")
+        return cors_jsonify(success=True, qid=f"Q{item_id}", error="item doesn't exist")
 
     if not item.locations:
-        return cors_jsonify(success=True,
-                            qid=f'Q{item_id}',
-                            error="item has no coordinates")
+        return cors_jsonify(
+            success=True, qid=f"Q{item_id}", error="item has no coordinates"
+        )
 
     label = item.label()
     item_is_street = item.is_street()
@@ -547,17 +605,15 @@ def api_find_osm_candidates(item_id):
         max_distance = 1_000
         limit = 40
         names = None
-    nearby = api.find_osm_candidates(item,
-                                     limit=limit,
-                                     max_distance=max_distance,
-                                     names=names)
+    nearby = api.find_osm_candidates(
+        item, limit=limit, max_distance=max_distance, names=names
+    )
 
     if (item_is_street or item_is_watercourse) and not nearby:
         # nearby = [osm for osm in nearby if street_name_match(label, osm)]
 
         # try again without name filter
-        nearby = api.find_osm_candidates(item, limit=100,
-                                         max_distance=1_000)
+        nearby = api.find_osm_candidates(item, limit=100, max_distance=1_000)
 
     t1 = time() - t0
     return cors_jsonify(
@@ -565,7 +621,7 @@ def api_find_osm_candidates(item_id):
         qid=item.qid,
         nearby=nearby,
         duration=t1,
-        max_distance=max_distance
+        max_distance=max_distance,
     )
 
 
@@ -574,10 +630,12 @@ def api_missing_wikidata_items():
     t0 = time()
     qids_arg = request.args.get("qids")
     if not qids_arg:
-        return cors_jsonify(success=False,
-                           error="required parameter 'qids' is missing",
-                           items=[],
-                           isa_count=[])
+        return cors_jsonify(
+            success=False,
+            error="required parameter 'qids' is missing",
+            items=[],
+            isa_count=[],
+        )
 
     qids = []
     for qid in qids_arg.upper().split(","):
@@ -593,10 +651,7 @@ def api_missing_wikidata_items():
 
     ret = api.missing_wikidata_items(qids, lat, lon)
     t1 = time() - t0
-    return cors_jsonify(
-        success=True,
-        duration=t1,
-        **ret)
+    return cors_jsonify(success=True, duration=t1, **ret)
 
 
 @app.route("/api/1/search")
@@ -615,20 +670,20 @@ def api_search():
 
     return cors_jsonify(success=True, hits=hits)
 
+
 @app.route("/api/1/polygon/<osm_type>/<int:osm_id>")
 def api_polygon(osm_type, osm_id):
     obj = model.Polygon.get_osm(osm_type, osm_id)
-    return cors_jsonify(successful=True,
-                        osm_type=osm_type,
-                        osm_id=osm_id,
-                        geojson=obj.geojson())
+    return cors_jsonify(
+        successful=True, osm_type=osm_type, osm_id=osm_id, geojson=obj.geojson()
+    )
 
 
 @app.route("/refresh/Q<int:item_id>")
 def refresh_item(item_id):
     assert not model.Item.query.get(item_id)
 
-    qid = f'Q{item_id}'
+    qid = f"Q{item_id}"
     entity = wikidata_api.get_entity(qid)
     entity_qid = entity.pop("id")
     assert qid == entity_qid
@@ -643,100 +698,110 @@ def refresh_item(item_id):
     database.session.add(item)
     database.session.commit()
 
-    return 'done'
+    return "done"
 
-@app.route('/login')
+
+@app.route("/login")
 def login_openstreetmap():
-    return redirect(url_for('start_oauth',
-                            next=request.args.get('next')))
+    return redirect(url_for("start_oauth", next=request.args.get("next")))
 
-@app.route('/logout')
+
+@app.route("/logout")
 def logout():
-    next_url = request.args.get('next') or url_for('map_start_page')
+    next_url = request.args.get("next") or url_for("map_start_page")
     flask_login.logout_user()
-    flash('you are logged out')
+    flash("you are logged out")
     return redirect(next_url)
 
-@app.route('/done/')
+
+@app.route("/done/")
 def done():
-    flash('login successful')
-    return redirect(url_for('map_start_page'))
+    flash("login successful")
+    return redirect(url_for("map_start_page"))
 
-@app.route('/oauth/start')
+
+@app.route("/oauth/start")
 def start_oauth():
-    next_page = request.args.get('next')
+    next_page = request.args.get("next")
     if next_page:
-        session['next'] = next_page
+        session["next"] = next_page
 
-    client_key = app.config['CLIENT_KEY']
-    client_secret = app.config['CLIENT_SECRET']
+    client_key = app.config["CLIENT_KEY"]
+    client_secret = app.config["CLIENT_SECRET"]
 
-    request_token_url = 'https://www.openstreetmap.org/oauth/request_token'
+    request_token_url = "https://www.openstreetmap.org/oauth/request_token"
 
-    callback = url_for('oauth_callback', _external=True)
+    callback = url_for("oauth_callback", _external=True)
 
-    oauth = OAuth1Session(client_key,
-                          client_secret=client_secret,
-                          callback_uri=callback)
+    oauth = OAuth1Session(
+        client_key, client_secret=client_secret, callback_uri=callback
+    )
     fetch_response = oauth.fetch_request_token(request_token_url)
 
-    session['owner_key'] = fetch_response.get('oauth_token')
-    session['owner_secret'] = fetch_response.get('oauth_token_secret')
+    session["owner_key"] = fetch_response.get("oauth_token")
+    session["owner_secret"] = fetch_response.get("oauth_token_secret")
 
-    base_authorization_url = 'https://www.openstreetmap.org/oauth/authorize'
-    authorization_url = oauth.authorization_url(base_authorization_url,
-                                                oauth_consumer_key=client_key)
+    base_authorization_url = "https://www.openstreetmap.org/oauth/authorize"
+    authorization_url = oauth.authorization_url(
+        base_authorization_url, oauth_consumer_key=client_key
+    )
     return redirect(authorization_url)
+
 
 @login_manager.user_loader
 def load_user(user_id):
     return model.User.query.get(user_id)
 
+
 @app.route("/oauth/callback", methods=["GET"])
 def oauth_callback():
-    client_key = app.config['CLIENT_KEY']
-    client_secret = app.config['CLIENT_SECRET']
+    client_key = app.config["CLIENT_KEY"]
+    client_secret = app.config["CLIENT_SECRET"]
 
-    oauth = OAuth1Session(client_key,
-                          client_secret=client_secret,
-                          resource_owner_key=session['owner_key'],
-                          resource_owner_secret=session['owner_secret'])
+    oauth = OAuth1Session(
+        client_key,
+        client_secret=client_secret,
+        resource_owner_key=session["owner_key"],
+        resource_owner_secret=session["owner_secret"],
+    )
 
     oauth_response = oauth.parse_authorization_response(request.url)
-    verifier = oauth_response.get('oauth_verifier')
-    access_token_url = 'https://www.openstreetmap.org/oauth/access_token'
-    oauth = OAuth1Session(client_key,
-                          client_secret=client_secret,
-                          resource_owner_key=session['owner_key'],
-                          resource_owner_secret=session['owner_secret'],
-                          verifier=verifier)
+    verifier = oauth_response.get("oauth_verifier")
+    access_token_url = "https://www.openstreetmap.org/oauth/access_token"
+    oauth = OAuth1Session(
+        client_key,
+        client_secret=client_secret,
+        resource_owner_key=session["owner_key"],
+        resource_owner_secret=session["owner_secret"],
+        verifier=verifier,
+    )
 
     oauth_tokens = oauth.fetch_access_token(access_token_url)
-    session['owner_key'] = oauth_tokens.get('oauth_token')
-    session['owner_secret'] = oauth_tokens.get('oauth_token_secret')
+    session["owner_key"] = oauth_tokens.get("oauth_token")
+    session["owner_secret"] = oauth_tokens.get("oauth_token_secret")
 
-    r = oauth.get(osm_api_base + '/user/details')
+    r = oauth.get(osm_api_base + "/user/details")
     info = osm_oauth.parse_userinfo_call(r.content)
 
-    user = model.User.query.filter_by(osm_id=info['id']).one_or_none()
+    user = model.User.query.filter_by(osm_id=info["id"]).one_or_none()
 
     if user:
-        user.osm_oauth_token = oauth_tokens.get('oauth_token')
-        user.osm_oauth_token_secret = oauth_tokens.get('oauth_token_secret')
+        user.osm_oauth_token = oauth_tokens.get("oauth_token")
+        user.osm_oauth_token_secret = oauth_tokens.get("oauth_token_secret")
     else:
         user = model.User(
-            username=info['username'],
-            description=info['description'],
-            img=info['img'],
-            osm_id=info['id'],
-            osm_account_created=info['account_created'],
+            username=info["username"],
+            description=info["description"],
+            img=info["img"],
+            osm_id=info["id"],
+            osm_account_created=info["account_created"],
             mock_upload=False,
         )
         database.session.add(user)
     database.session.commit()
     flask_login.login_user(user)
 
-    next_page = session.get('next') or url_for('map_start_page')
+    next_page = session.get("next") or url_for("map_start_page")
     return redirect(next_page)
 
 
@@ -744,14 +809,13 @@ def validate_edit_list(edits):
     for e in edits:
         assert model.Item.get_by_qid(e["qid"])
         assert e["op"] in {"add", "remove", "change"}
-        osm_type, _, osm_id = e['osm'].partition('/')
+        osm_type, _, osm_id = e["osm"].partition("/")
         osm_id = int(osm_id)
-        if osm_type == 'node':
+        if osm_type == "node":
             assert model.Point.query.get(osm_id)
         else:
             src_id = osm_id if osm_type == "way" else -osm_id
-            assert (model.Line.query.get(src_id)
-                    or model.Polygon.query.get(src_id))
+            assert model.Line.query.get(src_id) or model.Polygon.query.get(src_id)
 
 
 @app.route("/api/1/edit", methods=["POST"])
@@ -760,9 +824,9 @@ def api_new_edit_session():
     incoming = request.json
 
     validate_edit_list(incoming["edit_list"])
-    es = model.EditSession(user=user,
-                           edit_list=incoming['edit_list'],
-                           comment=incoming['comment'])
+    es = model.EditSession(
+        user=user, edit_list=incoming["edit_list"], comment=incoming["comment"]
+    )
     database.session.add(es)
     database.session.commit()
 
@@ -770,13 +834,14 @@ def api_new_edit_session():
 
     return cors_jsonify(success=True, session_id=session_id)
 
+
 @app.route("/api/1/edit/<int:session_id>", methods=["POST"])
 def api_edit_session(session_id):
     es = model.EditSession.query.get(session_id)
     assert flask_login.current_user.id == es.user_id
     incoming = request.json
 
-    for f in 'edit_list', 'comment':
+    for f in "edit_list", "comment":
         if f not in incoming:
             continue
         setattr(es, f, incoming[f])
@@ -784,21 +849,24 @@ def api_edit_session(session_id):
 
     return cors_jsonify(success=True, session_id=session_id)
 
+
 class VersionMismatch(Exception):
     pass
+
 
 def osm_object(osm_type, osm_id):
     if osm_type == "node":
         return model.Point.query.get(osm_id)
 
-    src_id = int(osm_id) * {'way': 1, 'relation': -1}[osm_type]
+    src_id = int(osm_id) * {"way": 1, "relation": -1}[osm_type]
     for cls in model.Line, model.Polygon:
         obj = cls.query.get(src_id)
         if obj:
             return obj
 
+
 def process_edit(changeset_id, e):
-    osm_type, _, osm_id = e['osm'].partition('/')
+    osm_type, _, osm_id = e["osm"].partition("/")
     qid = e["qid"]
     item_id = qid[1:]
 
@@ -851,9 +919,7 @@ def process_edit(changeset_id, e):
 
     cls = type(osm)
     database.session.execute(
-            update(cls).
-            where(cls.src_id == osm.src_id).
-            values(tags=new_tags)
+        update(cls).where(cls.src_id == osm.src_id).values(tags=new_tags)
     )
 
     db_edit = model.ChangesetEdit(
@@ -866,6 +932,7 @@ def process_edit(changeset_id, e):
     database.session.commit()
 
     return "saved"
+
 
 @app.route("/api/1/save/<int:session_id>")
 def api_save_changeset(session_id):
@@ -938,7 +1005,8 @@ def api_real_save_changeset(session_id):
         edit.close_changeset(changeset_id)
         yield send("done")
 
-    return Response(stream_with_context(stream(g.user)), mimetype='text/event-stream')
+    return Response(stream_with_context(stream(g.user)), mimetype="text/event-stream")
+
 
 def api_mock_save_changeset(session_id):
     es = model.EditSession.query.get(session_id)
@@ -948,7 +1016,7 @@ def api_mock_save_changeset(session_id):
         return f"data: {json.dumps(data)}\n\n"
 
     def stream(user):
-        print('stream')
+        print("stream")
         changeset_id = database.session.query(func.max(model.Changeset.id) + 1).scalar()
         sleep(1)
         yield send("open", id=changeset_id)
@@ -956,12 +1024,12 @@ def api_mock_save_changeset(session_id):
 
         update_count = 0
 
-        print('record_changeset', changeset_id)
+        print("record_changeset", changeset_id)
         edit.record_changeset(
             id=changeset_id, user=user, comment=es.comment, update_count=update_count
         )
 
-        print('edits')
+        print("edits")
 
         for num, e in enumerate(es.edit_list):
             print(num, e)
@@ -970,12 +1038,12 @@ def api_mock_save_changeset(session_id):
             yield send("saved", edit=e, num=num)
             sleep(1)
 
-        print('closing')
+        print("closing")
         yield send("closing")
         sleep(1)
         yield send("done")
 
-    return Response(stream(g.user), mimetype='text/event-stream')
+    return Response(stream(g.user), mimetype="text/event-stream")
 
 
 if __name__ == "__main__":

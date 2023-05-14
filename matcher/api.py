@@ -40,13 +40,14 @@ skip_tags = {
 }
 
 
-def get_country_iso3166_1(lat: float, lon: float) -> set[str]:
+def get_country_iso3166_1(lat, lon):
     """For a given lat/lon return a set of ISO country codes.
 
     Also cache the country code in the global object.
 
     Normally there should be only one country.
     """
+
     point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), srid)
     alpha2_codes = set()
     q = model.Polygon.query.filter(
@@ -263,7 +264,7 @@ WHERE tags ? 'wikidata'
     conn = database.session.connection()
     result = conn.execute(text(sql))
 
-    print(sql)
+    # print(sql)
 
     point_sql = (
         f"""
@@ -788,7 +789,7 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
     if limit:
         s = s.limit(limit)
 
-    print(s.compile(compile_kwargs={"literal_binds": True}))
+    # print(s.compile(compile_kwargs={"literal_binds": True}))
 
     conn = database.session.connection()
     nearby = []
@@ -1031,7 +1032,7 @@ def isa_incremental_search(search_terms):
         func.length(en_label) < 20,
     )
 
-    print(q.statement.compile(compile_kwargs={"literal_binds": True}))
+    # print(q.statement.compile(compile_kwargs={"literal_binds": True}))
 
     ret = []
     for item in q:
