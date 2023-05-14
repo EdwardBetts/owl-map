@@ -38,7 +38,9 @@ def get_revision_timestamp(revid: int) -> str:
     return cast(str, rev["timestamp"])
 
 
-def get_recent_changes(**kwargs: CallParams) -> requests.Response:
+def get_recent_changes(
+    rcstart: str | None = None, rccontinue: str | None = None
+) -> requests.Response:
     """Get list of recent changes."""
     props = [
         "title",
@@ -54,14 +56,14 @@ def get_recent_changes(**kwargs: CallParams) -> requests.Response:
         "action": "query",
         "list": "recentchanges",
         "rcnamespace": 0,
-        # "rctype": "log",
-        # "rclimit": "max",
         "rclimit": "max",
-        # "rcstart": start,
         "rcdir": "newer",
         "rcprop": "|".join(props),
-        **{k: cast(str | int, v) for k, v in kwargs.items() if v},
     }
+    if rcstart is not None:
+        params["rcstart"] = rcstart
+    if rccontinue is not None:
+        params["rccontinue"] = rccontinue
 
     return api_get(params)
 
