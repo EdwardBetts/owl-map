@@ -304,7 +304,8 @@ WHERE tags ? 'wikidata'
     return tagged
 
 
-def get_items(item_ids):
+def get_items(item_ids: list[int]) -> list[model.Item]:
+    """Get a Wikidata items with the given item IDs."""
     items = []
     for item_id in item_ids:
         item = model.Item.query.get(item_id)
@@ -317,8 +318,8 @@ def get_items(item_ids):
     return items
 
 
-def get_item_tags(item):
-    isa_list = [v["numeric-id"] for v in item.get_isa()]
+def get_item_tags(item: model.Item) -> dict[str, list[str]]:
+    isa_list: list[int] = [v["numeric-id"] for v in item.get_isa()]
     isa_items = [(isa, []) for isa in get_items(isa_list)]
 
     osm_list = defaultdict(list)
