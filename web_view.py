@@ -4,26 +4,13 @@ import json
 import re
 from time import sleep, time
 
+import flask
 import flask_login
 import GeoIP
 import lxml
 import maxminddb
 import requests
 import sqlalchemy
-from flask import (
-    Flask,
-    Response,
-    abort,
-    flash,
-    g,
-    jsonify,
-    redirect,
-    render_template,
-    request,
-    session,
-    stream_with_context,
-    url_for,
-)
 from requests_oauthlib import OAuth1Session
 from sqlalchemy import func
 from sqlalchemy.sql.expression import update
@@ -48,7 +35,7 @@ from matcher.data import property_map
 srid = 4326
 re_point = re.compile(r"^POINT\((.+) (.+)\)$")
 
-app = Flask(__name__)
+app = flask.Flask(__name__)
 app.debug = True
 app.config.from_object("config.default")
 error_mail.setup_error_mail(app)
@@ -72,8 +59,9 @@ def shutdown_session(exception=None):
 
 
 @app.before_request
-def global_user():
-    g.user = flask_login.current_user._get_current_object()
+def global_user() -> None:
+    """Make user object available globally."""
+    flask.g.user = flask_login.current_user._get_current_object()
 
 
 def dict_repr_values(d):
@@ -81,7 +69,8 @@ def dict_repr_values(d):
 
 
 def cors_jsonify(*args, **kwargs):
-    response = jsonify(*args, **kwargs)
+    """Add CORS header to JSON."""
+    response = flask.jsonify(*args, **kwargs)
     response.headers["Access-Control-Allow-Origin"] = "*"
     return response
 
@@ -112,24 +101,24 @@ def check_for_tagged_qid(qid):
 def geoip_user_record():
     gi = GeoIP.open(app.config["GEOIP_DATA"], GeoIP.GEOIP_STANDARD)
 
-    remote_ip = request.get("ip", request.remote_addr)
+    remote_ip = flask.request.get("ip", flask.request.remote_addr)
     return gi.record_by_addr(remote_ip)
 
 
 def get_user_location():
-    remote_ip = request.args.get("ip", request.remote_addr)
+    remote_ip = flask.request.args.get("ip", flask.request.remote_addr)
     maxmind = maxminddb_reader.get(remote_ip)
     return maxmind.get("location") if maxmind else None
 
 
 @app.route("/")
 def redirect_from_root():
-    return redirect(url_for("map_start_page"))
+    return flask.redirect(flask.url_for("map_start_page"))
 
 
 @app.route("/index")
 def index_page():
-    return render_template("index.html")
+    return flask.render_template("index.html")
 
 
 def get_username() -> str | None:
@@ -142,14 +131,14 @@ def get_username() -> str | None:
 def isa_page(item_id):
     item = api.get_item(item_id)
 
-    if request.method == "POST":
-        tag_or_key = request.form["tag_or_key"]
+    if flask.request.method == "POST":
+        tag_or_key = flask.request.form["tag_or_key"]
         extra = model.ItemExtraKeys(item=item, tag_or_key=tag_or_key)
         database.session.add(extra)
         database.session.commit()
-        flash("extra OSM tag/key added")
+        flask.flash("extra OSM tag/key added")
 
-        return redirect(url_for(request.endpoint, item_id=item_id))
+        return flask.redirect(flask.url_for(flask.request.endpoint, item_id=item_id))
 
     q = model.ItemExtraKeys.query.filter_by(item=item)
     extra = [e.tag_or_key for e in q]
@@ -164,13 +153,13 @@ def isa_page(item_id):
                 "item_id": s["numeric-id"],
                 "label": subclass.label(),
                 "description": subclass.description(),
-                "isa_page_url": url_for("isa_page", item_id=s["numeric-id"]),
+                "isa_page_url": flask.url_for("isa_page", item_id=s["numeric-id"]),
             }
         )
 
     tags = api.get_tags_for_isa_item(item)
 
-    return render_template(
+    return flask.render_template(
         "isa.html",
         item=item,
         extra=extra,
@@ -183,25 +172,25 @@ def isa_page(item_id):
 @app.route("/admin/skip_isa")
 def admin_skip_isa_list():
     q = model.Item.query.join(model.SkipIsA).order_by(model.Item.item_id)
-    return render_template("admin/skip_isa.html", q=q)
+    return flask.render_template("admin/skip_isa.html", q=q)
 
 
 @app.route("/identifier")
 def identifier_index():
-    return render_template("identifier_index.html", property_map=property_map)
+    return flask.render_template("identifier_index.html", property_map=property_map)
 
 
 @app.route("/commons/<filename>")
 def get_commons_image(filename):
     detail = commons.image_detail([filename], thumbheight=1200, thumbwidth=1200)
     image = detail[filename]
-    return redirect(image["thumburl"])
+    return flask.redirect(image["thumburl"])
 
 
 @app.route("/identifier/<pid>")
 def identifier_page(pid):
     per_page = 10
-    page = int(request.args.get("page", 1))
+    page = int(flask.request.args.get("page", 1))
     property_dict = {pid: (osm_keys, label) for pid, osm_keys, label in property_map}
     osm_keys, label = property_dict[pid]
 
@@ -237,7 +226,7 @@ def identifier_page(pid):
 
     osm_total = len(osm_points)
 
-    return render_template(
+    return flask.render_template(
         "identifier_page.html",
         pid=pid,
         osm_keys=osm_keys,
@@ -260,14 +249,14 @@ def map_start_page():
         lat, lon = 42.2917, -85.5872
         radius = 5
 
-    return redirect(
-        url_for(
+    return flask.redirect(
+        flask.url_for(
             "map_location",
             lat=f"{lat:.5f}",
             lon=f"{lon:.5f}",
             zoom=16,
             radius=radius,
-            ip=request.args.get("ip"),
+            ip=flask.request.args.get("ip"),
         )
     )
 
@@ -278,7 +267,7 @@ def documentation_page() -> str:
     user = flask_login.current_user
     username = user.username if user.is_authenticated else None
 
-    return render_template(
+    return flask.render_template(
         "documentation.html", active_tab="documentation", username=username
     )
 
@@ -287,12 +276,12 @@ def documentation_page() -> str:
 def search_page() -> str:
     """Search."""
     loc = get_user_location()
-    q = request.args.get("q")
+    q = flask.request.args.get("q")
 
     user = flask_login.current_user
     username = user.username if user.is_authenticated else None
 
-    return render_template(
+    return flask.render_template(
         "map.html",
         active_tab="map",
         lat=f'{loc["latitude"]:.5f}',
@@ -307,8 +296,8 @@ def search_page() -> str:
 
 @app.route("/map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lon>")
 def map_location(zoom, lat, lon):
-    qid = request.args.get("item")
-    isa_param = request.args.get("isa")
+    qid = flask.request.args.get("item")
+    isa_param = flask.request.args.get("isa")
     if qid:
         api.get_item(qid[1:])
 
@@ -324,13 +313,13 @@ def map_location(zoom, lat, lon):
             }
             isa_list.append(cur)
 
-    return render_template(
+    return flask.render_template(
         "map.html",
         active_tab="map",
         zoom=zoom,
         lat=lat,
         lon=lon,
-        radius=request.args.get("radius"),
+        radius=flask.request.args.get("radius"),
         username=get_username(),
         mode="map",
         q=None,
@@ -343,15 +332,15 @@ def lookup_item(item_id):
     item = api.get_item(item_id)
     if not item:
         # TODO: show nicer page for Wikidata item not found
-        return abort(404)
+        return flask.abort(404)
 
     try:
         lat, lon = item.locations[0].get_lat_lon()
     except IndexError:
         # TODO: show nicer page for Wikidata item without coordinates
-        return abort(404)
+        return flask.abort(404)
 
-    return render_template(
+    return flask.render_template(
         "map.html",
         active_tab="map",
         zoom=16,
@@ -364,17 +353,17 @@ def lookup_item(item_id):
         item_type_filter=[],
     )
 
-    url = url_for("map_location", zoom=16, lat=lat, lon=lon, item=item.qid)
-    return redirect(url)
+    url = flask.url_for("map_location", zoom=16, lat=lat, lon=lon, item=item.qid)
+    return flask.redirect(url)
 
 
 @app.route("/search/map")
 def search_map_page():
     user_lat, user_lon = get_user_location() or (None, None)
 
-    q = request.args.get("q")
+    q = flask.request.args.get("q")
     if not q:
-        return render_template("map.html", user_lat=user_lat, user_lon=user_lon)
+        return flask.render_template("map.html", user_lat=user_lat, user_lon=user_lon)
 
     hits = nominatim.lookup(q)
     for hit in hits:
@@ -382,7 +371,7 @@ def search_map_page():
             del hit["geotext"]
     bbox = [hit["boundingbox"] for hit in hits]
 
-    return render_template(
+    return flask.render_template(
         "search_map.html",
         hits=hits,
         bbox_list=bbox,
@@ -393,23 +382,23 @@ def search_map_page():
 
 @app.route("/old_search")
 def old_search_page():
-    q = request.args.get("q")
+    q = flask.request.args.get("q")
     if not q:
-        return render_template("search.html", hits=None, bbox_list=None)
+        return flask.render_template("search.html", hits=None, bbox_list=None)
     hits = nominatim.lookup(q)
     for hit in hits:
         if "geotext" in hit:
             del hit["geotext"]
     bbox = [hit["boundingbox"] for hit in hits]
-    return render_template("search.html", hits=hits, bbox_list=bbox)
+    return flask.render_template("search.html", hits=hits, bbox_list=bbox)
 
 
 def read_bounds_param():
-    return [float(i) for i in request.args["bounds"].split(",")]
+    return [float(i) for i in flask.request.args["bounds"].split(",")]
 
 
 def read_isa_filter_param():
-    isa_param = request.args.get("isa")
+    isa_param = flask.request.args.get("isa")
     if isa_param:
         return set(qid.strip() for qid in isa_param.upper().split(","))
 
@@ -432,7 +421,7 @@ def api_wikidata_items_count():
 @app.route("/api/1/isa_search")
 def api_isa_search():
     t0 = time()
-    search_terms = request.args.get("q")
+    search_terms = flask.request.args.get("q")
     items = api.isa_incremental_search(search_terms)
     t1 = time() - t0
 
@@ -577,7 +566,7 @@ def api_find_osm_candidates(item_id):
 @app.route("/api/1/missing")
 def api_missing_wikidata_items():
     t0 = time()
-    qids_arg = request.args.get("qids")
+    qids_arg = flask.request.args.get("qids")
     if not qids_arg:
         return cors_jsonify(
             success=False,
@@ -594,9 +583,9 @@ def api_missing_wikidata_items():
             continue
         qids.append(qid)
     if not qids:
-        return jsonify(success=True, items=[], isa_count=[])
+        return flask.jsonify(success=True, items=[], isa_count=[])
 
-    lat, lon = request.args.get("lat"), request.args.get("lon")
+    lat, lon = flask.request.args.get("lat"), flask.request.args.get("lon")
 
     ret = api.missing_wikidata_items(qids, lat, lon)
     t1 = time() - t0
@@ -605,7 +594,7 @@ def api_missing_wikidata_items():
 
 @app.route("/api/1/search")
 def api_search():
-    q = request.args["q"]
+    q = flask.request.args["q"]
     hits = nominatim.lookup(q)
     for hit in hits:
         hit["name"] = nominatim.get_hit_name(hit)
@@ -629,7 +618,8 @@ def api_polygon(osm_type, osm_id):
 
 
 @app.route("/refresh/Q<int:item_id>")
-def refresh_item(item_id):
+def refresh_item(item_id: int) -> str:
+    """Refresh the local mirror of a Wikidata item."""
     assert not model.Item.query.get(item_id)
 
     qid = f"Q{item_id}"
@@ -651,50 +641,55 @@ def refresh_item(item_id):
 
 
 @app.route("/login")
-def login_openstreetmap():
-    return redirect(url_for("start_oauth", next=request.args.get("next")))
+def login_openstreetmap() -> flask.Response:
+    """Redirect to login."""
+    return flask.redirect(
+        flask.url_for("start_oauth", next=flask.request.args.get("next"))
+    )
 
 
 @app.route("/logout")
-def logout():
-    next_url = request.args.get("next") or url_for("map_start_page")
+def logout() -> flask.Response:
+    """Logout."""
+    next_url = flask.request.args.get("next") or flask.url_for("map_start_page")
     flask_login.logout_user()
-    flash("you are logged out")
-    return redirect(next_url)
+    flask.flash("you are logged out")
+    return flask.redirect(next_url)
 
 
 @app.route("/done/")
 def done():
-    flash("login successful")
-    return redirect(url_for("map_start_page"))
+    flask.flash("login successful")
+    return flask.redirect(flask.url_for("map_start_page"))
 
 
 @app.route("/oauth/start")
 def start_oauth():
-    next_page = request.args.get("next")
+    """Start OAuth."""
+    next_page = flask.request.args.get("next")
     if next_page:
-        session["next"] = next_page
+        flask.session["next"] = next_page
 
     client_key = app.config["CLIENT_KEY"]
     client_secret = app.config["CLIENT_SECRET"]
 
     request_token_url = "https://www.openstreetmap.org/oauth/request_token"
 
-    callback = url_for("oauth_callback", _external=True)
+    callback = flask.url_for("oauth_callback", _external=True)
 
     oauth = OAuth1Session(
         client_key, client_secret=client_secret, callback_uri=callback
     )
     fetch_response = oauth.fetch_request_token(request_token_url)
 
-    session["owner_key"] = fetch_response.get("oauth_token")
-    session["owner_secret"] = fetch_response.get("oauth_token_secret")
+    flask.session["owner_key"] = fetch_response.get("oauth_token")
+    flask.session["owner_secret"] = fetch_response.get("oauth_token_secret")
 
     base_authorization_url = "https://www.openstreetmap.org/oauth/authorize"
     authorization_url = oauth.authorization_url(
         base_authorization_url, oauth_consumer_key=client_key
     )
-    return redirect(authorization_url)
+    return flask.redirect(authorization_url)
 
 
 @login_manager.user_loader
@@ -711,24 +706,24 @@ def oauth_callback():
     oauth = OAuth1Session(
         client_key,
         client_secret=client_secret,
-        resource_owner_key=session["owner_key"],
-        resource_owner_secret=session["owner_secret"],
+        resource_owner_key=flask.session["owner_key"],
+        resource_owner_secret=flask.session["owner_secret"],
     )
 
-    oauth_response = oauth.parse_authorization_response(request.url)
+    oauth_response = oauth.parse_authorization_response(flask.request.url)
     verifier = oauth_response.get("oauth_verifier")
     access_token_url = "https://www.openstreetmap.org/oauth/access_token"
     oauth = OAuth1Session(
         client_key,
         client_secret=client_secret,
-        resource_owner_key=session["owner_key"],
-        resource_owner_secret=session["owner_secret"],
+        resource_owner_key=flask.session["owner_key"],
+        resource_owner_secret=flask.session["owner_secret"],
         verifier=verifier,
     )
 
     oauth_tokens = oauth.fetch_access_token(access_token_url)
-    session["owner_key"] = oauth_tokens.get("oauth_token")
-    session["owner_secret"] = oauth_tokens.get("oauth_token_secret")
+    flask.session["owner_key"] = oauth_tokens.get("oauth_token")
+    flask.session["owner_secret"] = oauth_tokens.get("oauth_token_secret")
 
     r = oauth.get(osm_api_base + "/user/details")
     info = osm_oauth.parse_userinfo_call(r.content)
@@ -751,8 +746,8 @@ def oauth_callback():
     database.session.commit()
     flask_login.login_user(user)
 
-    next_page = session.get("next") or url_for("map_start_page")
-    return redirect(next_page)
+    next_page = flask.session.get("next") or flask.url_for("map_start_page")
+    return flask.redirect(next_page)
 
 
 def validate_edit_list(edits):
@@ -771,7 +766,7 @@ def validate_edit_list(edits):
 @app.route("/api/1/edit", methods=["POST"])
 def api_new_edit_session():
     user = flask_login.current_user
-    incoming = request.json
+    incoming = flask.request.json
 
     validate_edit_list(incoming["edit_list"])
     es = model.EditSession(
@@ -789,7 +784,7 @@ def api_new_edit_session():
 def api_edit_session(session_id):
     es = model.EditSession.query.get(session_id)
     assert flask_login.current_user.id == es.user_id
-    incoming = request.json
+    incoming = flask.request.json
 
     for f in "edit_list", "comment":
         if f not in incoming:
@@ -889,9 +884,9 @@ def process_edit(changeset_id, e):
 
 @app.route("/api/1/save/<int:session_id>")
 def api_save_changeset(session_id: int):
-    assert g.user.is_authenticated
+    assert flask.g.user.is_authenticated
 
-    mock = g.user.mock_upload
+    mock = flask.g.user.mock_upload
     api_call = api_mock_save_changeset if mock else api_real_save_changeset
     return api_call(session_id)
 
@@ -899,14 +894,14 @@ def api_save_changeset(session_id: int):
 @app.route("/sql", methods=["GET", "POST"])
 def run_sql() -> str:
     """Web form where the user can run an SQL query."""
-    if request.method != "POST":
-        return render_template("run_sql.html")
+    if flask.request.method != "POST":
+        return flask.render_template("run_sql.html")
 
-    sql = request.form["sql"]
+    sql = flask.request.form["sql"]
     conn = database.session.connection()
     result = conn.execute(sqlalchemy.text(sql))
 
-    return render_template("run_sql.html", result=result)
+    return flask.render_template("run_sql.html", result=result)
 
 
 def api_real_save_changeset(session_id):
@@ -959,7 +954,9 @@ def api_real_save_changeset(session_id):
         edit.close_changeset(changeset_id)
         yield send("done")
 
-    return Response(stream_with_context(stream(g.user)), mimetype="text/event-stream")
+    return flask.Response(
+        flask.stream_with_context(stream(flask.g.user)), mimetype="text/event-stream"
+    )
 
 
 def api_mock_save_changeset(session_id):
@@ -997,7 +994,7 @@ def api_mock_save_changeset(session_id):
         sleep(1)
         yield send("done")
 
-    return Response(stream(g.user), mimetype="text/event-stream")
+    return flask.Response(stream(flask.g.user), mimetype="text/event-stream")
 
 
 if __name__ == "__main__":
