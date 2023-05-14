@@ -1,21 +1,32 @@
-import requests
 import json
+import typing
+from typing import Any, cast
+
+import requests
 import simplejson.errors
+
+from . import CallParams, user_agent_headers
 
 wd_api_url = "https://www.wikidata.org/w/api.php"
 
+EntityType = dict[str, Any]
 
-def api_get(params):
-    base_params = {
+
+def api_get(params: CallParams) -> requests.Response:
+    """Call the wikidata API."""
+    call_params: CallParams = {
         "format": "json",
         "formatversion": 2,
+        **params,
     }
 
-    return requests.get(wd_api_url, params={**base_params, **params})
+    r = requests.get(wd_api_url, params=call_params, headers=user_agent_headers())
+    return r
 
 
-def get_revision_timestamp(revid):
-    params = {
+def get_revision_timestamp(revid: int) -> str:
+    """Get timetsmap for the given revid."""
+    params: CallParams = {
         "action": "query",
         "prop": "revisions",
         "revids": revid,
@@ -24,10 +35,11 @@ def get_revision_timestamp(revid):
     r = api_get(params)
     rev = r.json()["query"]["pages"][0]["revisions"][0]
     assert rev["revid"] == int(revid)
-    return rev["timestamp"]
+    return cast(str, rev["timestamp"])
 
 
-def get_recent_changes(**kwargs):
+def get_recent_changes(**kwargs: CallParams) -> requests.Response:
+    """Get list of recent changes."""
     props = [
         "title",
         "ids",
@@ -38,7 +50,7 @@ def get_recent_changes(**kwargs):
         "loginfo",
     ]
 
-    params = {
+    params: CallParams = {
         "action": "query",
         "list": "recentchanges",
         "rcnamespace": 0,
@@ -48,13 +60,14 @@ def get_recent_changes(**kwargs):
         # "rcstart": start,
         "rcdir": "newer",
         "rcprop": "|".join(props),
-        **{k: v for k, v in kwargs.items() if v},
+        **{k: cast(str | int, v) for k, v in kwargs.items() if v},
     }
 
     return api_get(params)
 
 
-def get_entity(qid):
+def get_entity(qid: str) -> EntityType:
+    """Retrieve a Wikidata item with the given QID using the API."""
     r = api_get({"action": "wbgetentities", "ids": qid})
     try:
         data = r.json()
@@ -63,10 +76,10 @@ def get_entity(qid):
         raise
     if "entities" not in data:
         print(json.dumps(data, indent=2))
-    return data["entities"][qid]
+    return cast(EntityType, data["entities"][qid])
 
 
-def get_entities(ids):
+def get_entities(ids: list[str]) -> typing.Iterator[tuple[str, EntityType]]:
+    """Get Wikidata item entities with the given QIDs."""
     r = api_get({"action": "wbgetentities", "ids": "|".join(ids)})
-    for qid, entity in r.json()["entities"].items():
-        yield qid, entity
+    return ((qid, entity) for qid, entity in r.json()["entities"].items())
