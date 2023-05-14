@@ -5,6 +5,7 @@
 import json
 import os
 import sys
+import typing
 from time import sleep
 
 from matcher import database, model, utils, wikidata, wikidata_api
@@ -12,13 +13,13 @@ from matcher import database, model, utils, wikidata, wikidata_api
 DB_URL = "postgresql:///matcher"
 database.init_db(DB_URL)
 
-previous_max_lastrevid = 1388804050  # Q106152661
+previous_max_lastrevid = 1888214110  # Q118129609
 
 entity_keys = {"labels", "sitelinks", "aliases", "claims", "descriptions", "lastrevid"}
 
 
-def read_changes():
-    qids = set()
+def read_changes() -> None:
+    qids: set[str] = set()
     max_lastrevid = 0
     for f in sorted(os.listdir("changes"), key=lambda f: int(f.partition(".")[0])):
         reply = json.load(open("changes/" + f))
@@ -43,7 +44,8 @@ def read_changes():
                 json.dump(entity, out)
 
 
-def get_changes():
+def get_changes() -> None:
+    """Get recent changes."""
     start = "2021-03-24T11:56:11"
     rccontinue = None
     i = 0
@@ -157,7 +159,7 @@ def handle_new(change):
     database.session.add(item)
 
 
-def coords_equal(a, b):
+def coords_equal(a: dict[str, typing.Any], b: dict[str, typing.Any]) -> bool:
     """Deep equality comparison of nested dicts."""
     return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
 
@@ -198,13 +200,14 @@ def handle_edit(change):
         setattr(item, key, entity[key])
 
 
-def update_timestamp(timestamp):
+def update_timestamp(timestamp: str) -> None:
+    """Save timestamp to rc_timestamp."""
     out = open("rc_timestamp", "w")
     print(timestamp, file=out)
     out.close()
 
 
-def update_database():
+def update_database() -> None:
     with open("rc_timestamp") as f:
         start = f.read().strip()
 
