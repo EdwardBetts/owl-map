@@ -1,22 +1,33 @@
+"""Send email to admins to about errors or other notworthy things."""
+
+import pprint
 import smtplib
 import sys
 import traceback
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
-from pprint import pformat
 
+import flask
+import requests
 from flask import current_app, g, has_request_context, request
 
+from . import wikidata_api
 
-def send_mail(subject, body, config=None):
+
+def send_mail(
+    subject: str, body: str, config: flask.config.Config | None = None
+) -> None:
+    """Send an email to admins, catch and ignore exceptions."""
     try:
         send_mail_main(subject, body, config=config)
     except smtplib.SMTPDataError:
         pass  # ignore email errors
 
 
-def send_mail_main(subject, body, config=None):
-    return
+def send_mail_main(
+    subject: str, body: str, config: flask.config.Config | None = None
+) -> None:
+    """Send an email to admins."""
     if config is None:
         config = current_app.config
 
@@ -29,13 +40,19 @@ def send_mail_main(subject, body, config=None):
     msg["From"] = mail_from
     msg["Date"] = formatdate()
     msg["Message-ID"] = make_msgid()
+    extra_mail_headers: list[tuple[str, str]] = config.get("MAIL_HEADERS", [])
+    for key, value in extra_mail_headers:
+        assert key not in msg
+        msg[key] = value
 
     s = smtplib.SMTP(config["SMTP_HOST"])
     s.sendmail(mail_from, [mail_to], msg.as_string())
     s.quit()
 
 
-def get_username():
+def get_username() -> str:
+    """Get the username for the current user."""
+    user: str
     if hasattr(g, "user"):
         if g.user.is_authenticated:
             user = g.user.username
@@ -47,7 +64,10 @@ def get_username():
     return user
 
 
-def error_mail(subject, data, r, via_web=True):
+def error_mail(
+    subject: str, data: str, r: requests.Response, via_web: bool = True
+) -> None:
+    """Error mail."""
     body = f"""
 remote URL: {r.url}
 status code: {r.status_code}
@@ -68,7 +88,8 @@ reply:
     send_mail(subject, body)
 
 
-def open_changeset_error(session_id, changeset, r):
+def open_changeset_error(session_id: int, changeset: str, r: requests.Response) -> None:
+    """Send error mail when failing to open a changeset."""
     username = g.user.username
     body = f"""
 user: {username}
@@ -96,9 +117,10 @@ def send_traceback(info, prefix="osm-wikidata"):
     send_mail(subject, body)
 
 
-def datavalue_missing(field, entity):
+def datavalue_missing(field: str, entity: wikidata_api.EntityType) -> None:
+    """Send an email for a missing datavalue."""
     qid = entity["title"]
-    body = f"https://www.wikidata.org/wiki/{qid}\n\n{pformat(entity)}"
+    body = f"https://www.wikidata.org/wiki/{qid}\n\n{pprint.pformat(entity)}"
 
     subject = f"{qid}: datavalue missing in {field}"
     send_mail(subject, body)
