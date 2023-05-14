@@ -3,122 +3,15 @@
 """Download Wikidata recent changes and update items in local database."""
 
 import json
-import os
-import sys
 import typing
 from time import sleep
 
-from matcher import database, model, utils, wikidata, wikidata_api
+from matcher import database, model, wikidata, wikidata_api
 
 DB_URL = "postgresql:///matcher"
 database.init_db(DB_URL)
 
-previous_max_lastrevid = 1888214110  # Q118129609
-
 entity_keys = {"labels", "sitelinks", "aliases", "claims", "descriptions", "lastrevid"}
-
-
-def read_changes() -> None:
-    qids: set[str] = set()
-    max_lastrevid = 0
-    for f in sorted(os.listdir("changes"), key=lambda f: int(f.partition(".")[0])):
-        reply = json.load(open("changes/" + f))
-        print(f, len(qids))
-        for change in reply["query"]["recentchanges"]:
-            # rctype = change["type"]
-            title = change["title"]
-            revid = change["revid"]
-            if revid and revid > max_lastrevid:
-                max_lastrevid = revid
-            assert title.startswith("Q")
-            qids.add(title)
-    print(len(qids))
-    print(max_lastrevid)
-
-    return
-
-    for cur in utils.chunk(qids, 50):
-        print(cur)
-        for qid, entity in wikidata_api.get_entities(cur):
-            with open(f"items/{qid}.json", "w") as out:
-                json.dump(entity, out)
-
-
-def get_changes() -> None:
-    """Get recent changes."""
-    start = "2021-03-24T11:56:11"
-    rccontinue = None
-    i = 0
-    while True:
-        i += 1
-        r = wikidata_api.query_wd_api(rcstart=start, rccontinue=rccontinue)
-        with open(f"changes/{i:06d}.json", "w") as out:
-            out.write(r.text)
-
-        reply = r.json()
-        try:
-            print(reply["query"]["recentchanges"][0]["timestamp"])
-        except KeyError:
-            print("KeyError")
-
-        if False:
-            for change in reply["query"]["recentchanges"]:
-                # rctype = change["type"]
-                # if change["revid"] == 0 and change["old_revid"] == 0:
-                #     continue
-
-                if change["logtype"] == "delete" and change["logaction"] in {
-                    "revision",
-                    "delete",
-                    "restore",
-                }:
-                    continue
-
-                if change["logtype"] == "protect" and change["logaction"] in {
-                    "unprotect",
-                    "protect",
-                }:
-                    continue
-
-                print(json.dumps(change, indent=2))
-                sys.exit(0)
-
-                continue
-
-                if not change["title"].startswith("Q"):
-                    continue  # not an item
-
-                qid = change["title"]
-                assert qid[1:].isdigit()
-                item_id = int(qid[1:])
-                revid = change["revid"]
-
-                item = model.Item.query.get(item_id)
-                if change["type"] == "edit" and not item:
-                    continue
-
-                if change["type"] == "new" and not item:
-                    print(("new", qid))
-                    continue
-
-                if not item:
-                    print(qid)
-                    print(json.dumps(change, indent=2))
-                print((change["type"], qid, item.lastrevid, revid))
-
-            # print(json.dumps(reply, indent=2))
-
-        if "continue" not in reply:
-            break
-
-        rccontinue = reply["continue"]["rccontinue"]
-        print(rccontinue)
-        sleep(1)
-
-
-def get_timestamp():
-    ts = wikidata_api.get_revision_timestamp(previous_max_lastrevid)
-    print(ts)
 
 
 def handle_new(change):
@@ -243,10 +136,12 @@ def update_database() -> None:
     print("finished")
 
 
-# read_changes()
-# get_timestamp()
-# get_changes()
+def main() -> None:
+    """Infinite loop."""
+    while True:
+        update_database()
+        sleep(60)
 
-while True:
-    update_database()
-    sleep(60)
+
+if __name__ == "__main__":
+    main()
