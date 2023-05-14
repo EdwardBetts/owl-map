@@ -1,3 +1,5 @@
+"""Utility functions."""
+
 import json
 import math
 import os.path
@@ -112,20 +114,26 @@ def any_upper(value: str) -> bool:
     return any(c.isupper() for c in value)
 
 
-def find_log_file(place):
-    start = f"{place.place_id}_"
-    for f in os.scandir(good_location()):
-        if f.name.startswith(start):
-            return f.path
-
-
 def get_free_space(config: flask.config.Config) -> int:
     """Return the amount of available free space."""
     s = os.statvfs(config["FREE_SPACE_PATH"])
     return s.f_bsize * s.f_bavail
 
 
-def display_distance(units, dist):
+def metric_display_distance(units: str, dist: float) -> str | None:
+    """Convert distance from metres to the specified metric units."""
+    if units == "km_and_metres":
+        units = "km" if dist > 500 else "metres"
+    if units == "metres":
+        return f"{dist:,.0f} m"
+    if units == "km":
+        return f"{dist / 1000:,.2f} km"
+
+    return None
+
+
+def display_distance(units: str, dist: float) -> str | None:
+    """Convert distance from metres to the specified units."""
     if units in ("miles_and_feet", "miles_and_yards"):
         total_feet = dist * feet_per_metre
         miles = total_feet / feet_per_mile
@@ -142,12 +150,7 @@ def display_distance(units, dist):
         miles = dist / metres_per_mile
         return f"{miles:,.2f} miles" if miles > 0.5 else f"{dist:,.0f} metres"
 
-    if units == "km_and_metres":
-        units = "km" if dist > 500 else "metres"
-    if units == "metres":
-        return f"{dist:,.0f} m"
-    if units == "km":
-        return f"{dist / 1000:,.2f} km"
+    return metric_display_distance(units, dist)
 
 
 def is_in_range(address_range: str, address: str) -> bool:
@@ -177,20 +180,27 @@ def is_in_range(address_range: str, address: str) -> bool:
     return False
 
 
-def format_wikibase_time(v):
-    p = v["precision"]
+class WikibaseTime(typing.TypedDict):
+    """Wikibase Time dict."""
+
+    precision: int
+    time: str
+
+
+def format_wikibase_time(v: WikibaseTime) -> str | None:
+    """Format wikibase time value into human readable string."""
     t = v["time"]
 
-    # TODO: handle dates with century precision (7)
-    # example: https://www.wikidata.org/wiki/Q108266998
-
-    if p == 11:
-        return date.fromisoformat(t[1:11]).strftime("%-d %B %Y")
-    if p == 10:
-        return date.fromisoformat(t[1:8] + "-01").strftime("%B %Y")
-    if p == 9:
-        return t[1:5]
-    if p == 7:
-        century = ((int(t[:5]) - 1) // 100) + 1
-        end = " BC" if century < 0 else ""
-        return num2words(abs(century), to="ordinal_num") + " century" + end
+    match v["precision"]:
+        case 11:  # year, month and day
+            return date.fromisoformat(t[1:11]).strftime("%-d %B %Y")
+        case 10:  # year and month
+            return date.fromisoformat(t[1:8] + "-01").strftime("%B %Y")
+        case 9:  # year
+            return t[1:5]
+        case 7:  # century
+            century = ((int(t[:5]) - 1) // 100) + 1
+            ordinal_num: str = num2words(abs(century), to="ordinal_num")
+            return f"{ordinal_num} {century}{' BC' if century < 0 else ''}"
+        case _:  # not handled
+            return None
