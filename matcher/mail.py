@@ -86,7 +86,7 @@ reply:
 
 """
 
-    send_mail("error creating changeset:" + body)
+    send_mail("error creating changeset", body)
 
 
 def send_traceback(info, prefix="osm-wikidata"):
