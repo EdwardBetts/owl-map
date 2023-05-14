@@ -1,6 +1,7 @@
 import json
 import os.path
 import re
+import typing
 from collections import Counter, defaultdict
 
 from flask import current_app, g
@@ -195,9 +196,9 @@ def get_and_save_item(qid: str) -> model.Item | None:
     return item
 
 
-def get_isa_count(items: list[model.Item]) -> list[tuple[int, int]]:
+def get_isa_count(items: list[model.Item]) -> list[tuple[str, int]]:
     """List of IsA counts."""
-    isa_count: Counter[int] = Counter()
+    isa_count: Counter[str] = Counter()
     for item in items:
         if not item:
             continue
@@ -318,9 +319,18 @@ def get_items(item_ids: list[int]) -> list[model.Item]:
     return items
 
 
+class IsaPath(typing.TypedDict):
+    """Component of an IsA path."""
+
+    qid: str
+    label: str
+
+
 def get_item_tags(item: model.Item) -> dict[str, list[str]]:
-    isa_list: list[int] = [v["numeric-id"] for v in item.get_isa()]
-    isa_items = [(isa, []) for isa in get_items(isa_list)]
+    isa_list: list[int] = [typing.cast(int, v["numeric-id"]) for v in item.get_isa()]
+    isa_items: list[tuple[model.Item, list[IsaPath]]] = [
+        (isa, []) for isa in get_items(isa_list)
+    ]
 
     osm_list = defaultdict(list)
 
@@ -342,7 +352,8 @@ def get_item_tags(item: model.Item) -> dict[str, list[str]]:
         isa, isa_path = isa_items.pop()
         if not isa:
             continue
-        isa_path = isa_path + [{"qid": isa.qid, "label": isa.label()}]
+        isa_qid: str = typing.cast(str, isa.qid)
+        isa_path = isa_path + [{"qid": isa_qid, "label": isa.label()}]
         osm = [v for v in isa.get_claim("P1282") if v not in skip_tags]
 
         osm += [
@@ -353,7 +364,7 @@ def get_item_tags(item: model.Item) -> dict[str, list[str]]:
         for i in osm:
             osm_list[i].append(isa_path[:])
 
-        if isa.qid in stop:
+        if isa_qid in stop:
             # item is specific enough, no need to keep walking the item hierarchy
             continue
 
