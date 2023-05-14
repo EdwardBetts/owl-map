@@ -6,6 +6,7 @@ from time import sleep, time
 
 import flask_login
 import GeoIP
+import lxml
 import maxminddb
 import requests
 import sqlalchemy
@@ -23,7 +24,6 @@ from flask import (
     stream_with_context,
     url_for,
 )
-from lxml import etree
 from requests_oauthlib import OAuth1Session
 from sqlalchemy import func
 from sqlalchemy.sql.expression import update
@@ -824,7 +824,7 @@ def process_edit(changeset_id, e):
     if r.status_code == 410 or r.content == b"":
         return "deleted"
 
-    root = etree.fromstring(r.content)
+    root = lxml.etree.fromstring(r.content)
     existing = root.find('.//tag[@k="wikidata"]')
     if e["op"] == "add" and existing is not None:
         return "already_added"
@@ -836,14 +836,14 @@ def process_edit(changeset_id, e):
 
     root[0].set("changeset", str(changeset_id))
     if e["op"] == "add":
-        tag = etree.Element("tag", k="wikidata", v=qid)
+        tag = lxml.etree.Element("tag", k="wikidata", v=qid)
         root[0].append(tag)
     if e["op"] == "remove":
         root[0].remove(existing)
     if e["op"] == "change":
         existing.set("v", qid)
 
-    element_data = etree.tostring(root)
+    element_data = lxml.etree.tostring(root)
     try:
         success = edit.save_element(osm_type, osm_id, element_data)
     except requests.exceptions.HTTPError as e:
