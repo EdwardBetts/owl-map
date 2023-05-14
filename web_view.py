@@ -389,36 +389,6 @@ def lookup_item(item_id):
     return redirect(url)
 
 
-@app.route("/item/Q<int:item_id>")
-def lookup_item(item_id):
-    item = api.get_item(item_id)
-    if not item:
-        # TODO: show nicer page for Wikidata item not found
-        return abort(404)
-
-    try:
-        lat, lon = item.locations[0].get_lat_lon()
-    except IndexError:
-        # TODO: show nicer page for Wikidata item without coordinates
-        return abort(404)
-
-    return render_template(
-        "map.html",
-        active_tab="map",
-        zoom=16,
-        lat=lat,
-        lon=lon,
-        username=get_username(),
-        mode="map",
-        q=None,
-        qid=item.qid,
-        item_type_filter=[],
-    )
-
-    url = url_for("map_location", zoom=16, lat=lat, lon=lon, item=item.qid)
-    return redirect(url)
-
-
 @app.route("/search/map")
 def search_map_page():
     user_lat, user_lon = get_user_location() or (None, None)
