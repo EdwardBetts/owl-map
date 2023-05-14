@@ -914,7 +914,8 @@ def api_save_changeset(session_id):
 
 
 @app.route("/sql", methods=["GET", "POST"])
-def run_sql():
+def run_sql() -> str:
+    """Web form where the user can run an SQL query."""
     if request.method != "POST":
         return render_template("run_sql.html")
 
