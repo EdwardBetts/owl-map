@@ -666,7 +666,7 @@ def get_address_nodes_within_building(osm_id, bbox_list):
     return [node.tags for node in q]
 
 
-def osm_display_name(tags: dict[str, str]) -> str | None:
+def osm_display_name(tags: TagsType) -> str | None:
     """Get name to display from OSM tags."""
     keys = (
         "bridge:name",
