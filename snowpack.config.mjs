@@ -1,9 +1,7 @@
-import pkg from './package.json';
-
 /** @type {import("snowpack").SnowpackUserConfig } */
 export default {
   mount: {
-    // public: {url: '/', static: true},
+    public: {url: '/', static: true},
     frontend: {url: '/dist'},
   },
   plugins: [

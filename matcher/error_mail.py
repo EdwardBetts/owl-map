@@ -1,13 +1,19 @@
+"""Send mail to admins when there is an error."""
+
 import logging
-from logging.handlers import SMTPHandler
 from logging import Formatter
-from flask import request
+from logging.handlers import SMTPHandler
+
+import flask
 
 PROJECT = "osm-wikidata"
 
 
 class MatcherSMTPHandler(SMTPHandler):
-    def getSubject(self, record):  # noqa: N802
+    """Custom SMTP handler to change subject line."""
+
+    def getSubject(self, record: logging.LogRecord) -> str:  # noqa: N802
+        """Return subject line for error mail."""
         return (
             f"{PROJECT} error: {record.exc_info[0].__name__}"
             if (record.exc_info and record.exc_info[0])
@@ -16,12 +22,16 @@ class MatcherSMTPHandler(SMTPHandler):
 
 
 class RequestFormatter(Formatter):
-    def format(self, record):
-        record.request = request
+    """Custom request formatter."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Add request to log record."""
+        record.request = flask.request
         return super().format(record)
 
 
-def setup_error_mail(app):
+def setup_error_mail(app: flask.Flask) -> None:
+    """Configure logging to catch errors and email them."""
     if not app.config.get("ERROR_MAIL"):
         return
     formatter = RequestFormatter(
