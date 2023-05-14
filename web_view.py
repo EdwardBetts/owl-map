@@ -132,10 +132,10 @@ def index_page():
     return render_template("index.html")
 
 
-def get_username():
+def get_username() -> str | None:
+    """Username for current user."""
     user = flask_login.current_user
-    if user.is_authenticated:
-        return user.username
+    return user.username if user.is_authenticated else None
 
 
 @app.route("/isa/Q<int:item_id>", methods=["GET", "POST"])
@@ -273,7 +273,8 @@ def map_start_page():
 
 
 @app.route("/documentation")
-def documentation_page():
+def documentation_page() -> str:
+    """Documentation."""
     user = flask_login.current_user
     username = user.username if user.is_authenticated else None
 
@@ -283,7 +284,8 @@ def documentation_page():
 
 
 @app.route("/search")
-def search_page():
+def search_page() -> str:
+    """Search."""
     loc = get_user_location()
     q = request.args.get("q")
 
@@ -696,7 +698,8 @@ def start_oauth():
 
 
 @login_manager.user_loader
-def load_user(user_id):
+def load_user(user_id) -> model.User:
+    """User with the given user_id."""
     return model.User.query.get(user_id)
 
 
@@ -798,10 +801,13 @@ def api_edit_session(session_id):
 
 
 class VersionMismatch(Exception):
-    pass
+    """Version doesn't match."""
 
 
-def osm_object(osm_type, osm_id):
+def osm_object(
+    osm_type: str, osm_id: int
+) -> model.Point | model.Line | model.Polygon | None:
+    """Get an OSM object from the database."""
     if osm_type == "node":
         return model.Point.query.get(osm_id)
 
@@ -882,7 +888,7 @@ def process_edit(changeset_id, e):
 
 
 @app.route("/api/1/save/<int:session_id>")
-def api_save_changeset(session_id):
+def api_save_changeset(session_id: int):
     assert g.user.is_authenticated
 
     mock = g.user.mock_upload
