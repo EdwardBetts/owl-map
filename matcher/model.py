@@ -9,10 +9,11 @@ from geoalchemy2 import Geometry
 from sqlalchemy import func
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import backref, column_property, deferred, relationship
+from sqlalchemy.orm import backref, column_property, deferred, registry, relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
+from sqlalchemy.orm.decl_api import DeclarativeMeta
 from sqlalchemy.schema import Column, ForeignKey
 from sqlalchemy.sql.expression import cast
 from sqlalchemy.types import BigInteger, Boolean, DateTime, Float, Integer, String, Text
@@ -20,8 +21,18 @@ from sqlalchemy.types import BigInteger, Boolean, DateTime, Float, Integer, Stri
 from . import mail, utils, wikidata
 from .database import now_utc, session
 
-Base = declarative_base()
-Base.query = session.query_property()
+mapper_registry = registry()
+
+
+class Base(metaclass=DeclarativeMeta):
+    __abstract__ = True
+
+    registry = mapper_registry
+    metadata = mapper_registry.metadata
+    query = session.query_property()
+
+    __init__ = mapper_registry.constructor
+
 
 re_point = re.compile(r"^POINT\((.+) (.+)\)$")
 
