@@ -8,7 +8,7 @@ really_save = True
 osm_api_base = "https://api.openstreetmap.org/api/0.6"
 
 
-def new_changeset(comment):
+def new_changeset(comment: str) -> str:
     return f"""
 <osm>
   <changeset>
