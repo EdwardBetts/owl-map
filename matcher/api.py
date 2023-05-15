@@ -5,6 +5,7 @@ import re
 import typing
 
 import flask
+import geoalchemy2
 from sqlalchemy import and_, func, or_, text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import selectinload
@@ -87,19 +88,25 @@ def is_street_number_first(lat: float, lon: float) -> bool:
     return bool(alpha2_number_first & alpha2)
 
 
-def make_envelope(bounds):
+def make_envelope(bounds: list[float]) -> geoalchemy2.functions.ST_MakeEnvelope:
+    """Make en envelope for the given bounds."""
     return func.ST_MakeEnvelope(*bounds, srid)
 
 
-def get_bbox_centroid(bbox):
+def get_bbox_centroid(bbox: list[float]) -> tuple[str, str]:
+    """Get centroid of bounding box."""
     bbox = make_envelope(bbox)
     centroid = database.session.query(func.ST_AsText(func.ST_Centroid(bbox))).scalar()
     m = re_point.match(centroid)
     assert m
-    return reversed(m.groups())
+    lon, lat = m.groups()
+    assert lon and lat
+    return (lat, lon)
 
 
-def make_envelope_around_point(lat: float, lon: float, distance: float):
+def make_envelope_around_point(
+    lat: float, lon: float, distance: float
+) -> geoalchemy2.functions.ST_MakeEnvelope:
     conn = database.session.connection()
 
     p = func.ST_MakePoint(lon, lat)
@@ -191,6 +198,7 @@ def get_and_save_item(qid: str) -> model.Item | None:
         print(f'{entity["pageid"]=} {entity["ns"]=} {entity["type"]=}')
         print(entity.keys())
         raise
+    assert item
     item.locations = model.location_objects(coords)
     database.session.add(item)
     database.session.commit()
@@ -214,7 +222,7 @@ def get_isa_count(items: list[model.Item]) -> list[tuple[str, int]]:
     return isa_count.most_common()
 
 
-def get_items_in_bbox(bbox):
+def get_items_in_bbox(bbox: list[float]):
     db_bbox = make_envelope(bbox)
 
     q = (
@@ -1072,10 +1080,10 @@ class PlaceItems(typing.TypedDict):
     """Place items."""
 
     count: int
-    items: list[model.Item]
+    items: list[dict[str, typing.Any]]
 
 
-def get_place_items(osm_type: int, osm_id: int) -> PlaceItems:
+def get_place_items(osm_type: str, osm_id: int) -> PlaceItems:
     """Return place items for given osm_type and osm_id."""
     src_id = osm_id * {"way": 1, "relation": -1}[osm_type]
 
