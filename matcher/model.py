@@ -413,12 +413,15 @@ class ItemLocation(Base):
         return loc
 
 
-def location_objects(coords):
-    locations = []
-    for pid, coord_list in coords.items():
+def location_objects(
+    coords_dict: dict[str, list[wikidata.Coords]]
+) -> list[ItemLocation]:
+    """Create location objects with the given coordinates."""
+    locations: list[ItemLocation] = []
+    for pid, coord_list in coords_dict.items():
         for num, coords in enumerate(coord_list):
             point = f"POINT({coords['longitude']} {coords['latitude']})"
-            loc = ItemLocation(
+            loc: ItemLocation = ItemLocation(
                 property_id=int(pid[1:]), statement_order=num, location=point
             )
             locations.append(loc)
