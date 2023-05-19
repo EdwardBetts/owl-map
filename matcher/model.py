@@ -116,7 +116,7 @@ class Item(Base):
         """Wikidata URL for item."""
         return f"https://www.wikidata.org/wiki/{self.qid}"
 
-    def get_claim(self, pid: str) -> list[dict[str, Any] | None]:
+    def get_claim(self, pid: str) -> list[str | int | dict[str, str | int] | None]:
         """List of claims for given Wikidata property ID."""
         claims = typing.cast(wikidata.Claims, self.claims)
         return [
