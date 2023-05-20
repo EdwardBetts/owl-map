@@ -411,7 +411,7 @@ def get_item_tags(item: model.Item) -> dict[str, list[str]]:
         print(isa.qid, isa.label(), check)
         isa_list_set = check - seen
         seen.update(isa_list_set)
-        isa_items += [(isa, isa_path) for isa in get_items(isa_list)]
+        isa_items += [(isa, isa_path) for isa in get_items(isa_list_set)]
     return {key: list(values) for key, values in osm_list.items()}
 
 
