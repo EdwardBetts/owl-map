@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+"""Views for the web app."""
+
 import json
 import re
 from time import sleep, time
@@ -295,7 +297,7 @@ def search_page() -> str:
 
 
 @app.route("/map/<int:zoom>/<float(signed=True):lat>/<float(signed=True):lon>")
-def map_location(zoom, lat, lon):
+def map_location(zoom: int, lat: float, lon: float) -> str:
     qid = flask.request.args.get("item")
     isa_param = flask.request.args.get("isa")
     if qid:
