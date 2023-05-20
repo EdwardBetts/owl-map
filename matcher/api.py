@@ -550,7 +550,6 @@ def get_tag_filter(
     tags: sqlalchemy.sql.schema.Column, tag_list: list[str]
 ) -> list[sqlalchemy.sql.elements.BooleanClauseList]:
     tag_filter = []
-    print("tags type:", type(tags))
     for tag_or_key in tag_list:
         if tag_or_key.startswith("Key:"):
             key = tag_or_key[4:]
@@ -564,7 +563,6 @@ def get_tag_filter(
             for prefix in tag_prefixes:
                 tag_filter.append(tags[f"{prefix}:{k}"] == v)
 
-    print("tag_filter type:", [type(i) for i in tag_filter])
     return tag_filter
 
 
