@@ -8,6 +8,8 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 session: sqlalchemy.orm.scoping.scoped_session = scoped_session(sessionmaker())
 
+timeout = 20_000  # 20 seconds
+
 
 def init_db(db_url: str, echo: bool = False) -> None:
     """Initialise database."""
@@ -16,7 +18,14 @@ def init_db(db_url: str, echo: bool = False) -> None:
 
 def get_engine(db_url: str, echo: bool = False) -> sqlalchemy.engine.base.Engine:
     """Create an engine objcet."""
-    return create_engine(db_url, pool_recycle=3600, echo=echo)
+    return create_engine(
+        db_url,
+        pool_recycle=3600,
+        echo=echo,
+        connect_args={
+            "options": f"-c lock_timeout={timeout} -c statement_timeout={timeout}"
+        },
+    )
 
 
 def get_tables() -> list[str]:
