@@ -404,3 +404,11 @@ select item_id, labels->'en'->'value'
 ---
 Shipyard results shouldn't include place=city
 https://map.osm.wikidata.link/map/18/50.89540/-1.38243?item=Q551401
+
+---
+2023-05-19
+
+Need option to show labels in more languages. Matching in Greece doesn't work
+great when there is an English label in Wikidata. OWL Map shows the English
+label, if the object in OSM only has a label in Greek then it is hard to tell if
+they match. Should optionally show more languages.
