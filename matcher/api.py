@@ -550,18 +550,23 @@ def get_tag_filter(
     tags: sqlalchemy.sql.schema.Column, tag_list: list[str]
 ) -> list[sqlalchemy.sql.elements.BooleanClauseList]:
     tag_filter = []
+
+    include_prefix = len(tag_list) < 10
+
     for tag_or_key in tag_list:
         if tag_or_key.startswith("Key:"):
             key = tag_or_key[4:]
             tag_filter.append(and_(tags.has_key(key), tags[key] != "no"))
-            for prefix in tag_prefixes:
-                tag_filter.append(tags.has_key(f"{prefix}:{key}"))
+            if include_prefix:
+                for prefix in tag_prefixes:
+                    tag_filter.append(tags.has_key(f"{prefix}:{key}"))
 
         if tag_or_key.startswith("Tag:"):
             k, _, v = tag_or_key[4:].partition("=")
             tag_filter.append(tags[k] == v)
-            for prefix in tag_prefixes:
-                tag_filter.append(tags[f"{prefix}:{k}"] == v)
+            if include_prefix:
+                for prefix in tag_prefixes:
+                    tag_filter.append(tags[f"{prefix}:{k}"] == v)
 
     return tag_filter
 
