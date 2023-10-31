@@ -746,8 +746,6 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
     )
 
     tag_list = get_item_tags(item)
-    # tag_filters = get_tag_filter(point.c.tags, tag_list)
-    # print(tag_filters)
 
     s_point = (
         select(
