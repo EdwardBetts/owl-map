@@ -110,7 +110,9 @@ def make_envelope_around_point(
     """Make an envelope around a point, the distance parameter specifies the size."""
     conn = database.session.connection()
 
-    p = sqlalchemy.func.ST_MakePoint(lon, lat)
+    p = sqlalchemy.sql.expression.cast(
+        sqlalchemy.func.ST_MakePoint(lon, lat), geoalchemy2.Geography
+    )
 
     s = select(
         [
