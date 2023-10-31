@@ -978,7 +978,27 @@ def check_is_street_number_first(latlng):
     flask.g.street_number_first = is_street_number_first(*latlng)
 
 
-def item_detail(item):
+class ItemDetailType(typing.TypedDict):
+    """Details of an item as a dict."""
+
+    qid: str
+    label: str
+    description: str
+    markers: list[dict[str, float]]
+    image_list: list[str]
+    street_address: list[str]
+    isa_list: list[dict[str, str]]
+    closed: bool
+    inception: str
+    p1619: str
+    p576: str
+    heritage_designation: str
+    wikipedia: dict[str, str]
+    identifiers: list[str]
+
+
+def item_detail(item: model.Item) -> ItemDetailType:
+    """Get detail for an item, returns a dict."""
     unsupported_relation_types = {
         "Q194356",  # wind farm
         "Q2175765",  # tram stop
@@ -1115,7 +1135,7 @@ def missing_wikidata_items(qids, lat, lon):
         }
         isa_count.append(isa)
 
-    return dict(items=items, isa_count=isa_count)
+    return {"items": items, "isa_count": isa_count}
 
 
 def isa_incremental_search(search_terms: str) -> list[dict[str, str]]:
