@@ -1823,7 +1823,7 @@ export default {
       };
 
       var map = L.map("map", options);
-      var osm_url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+      var osm_url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
       var tile_url = "https://tile-c.openstreetmap.fr/hot/{z}/{x}/{y}.png";
       var osm = L.tileLayer(osm_url, {
         maxZoom: 19,

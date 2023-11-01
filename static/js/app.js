@@ -2,7 +2,7 @@
 
 var map = L.map('map');
 
-var tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+var tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
 var group = L.featureGroup();
 map.addLayer(group);
 tiles.addTo(map);

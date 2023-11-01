@@ -18,7 +18,7 @@ if (!user_lat || !user_lon) {
 }
 
 // Add OpenStreetMap layer
-var osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 });
+var osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 });
 
 osm.addTo(map);
 
