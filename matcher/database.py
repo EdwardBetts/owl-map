@@ -1,4 +1,6 @@
-"""Database functions."""
+"""Database."""
+
+from datetime import datetime
 
 import flask
 import sqlalchemy
@@ -8,7 +10,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 session: sqlalchemy.orm.scoping.scoped_session = scoped_session(sessionmaker())
 
-timeout = 20_000  # 20 seconds
+timeout = 2_000  # 20 seconds
 
 
 def init_db(db_url: str, echo: bool = False) -> None:
@@ -17,7 +19,7 @@ def init_db(db_url: str, echo: bool = False) -> None:
 
 
 def get_engine(db_url: str, echo: bool = False) -> sqlalchemy.engine.base.Engine:
-    """Create an engine objcet."""
+    """Create an engine object."""
     return create_engine(
         db_url,
         pool_recycle=3600,
@@ -40,9 +42,10 @@ def init_app(app: flask.app.Flask, echo: bool = False) -> None:
     session.configure(bind=get_engine(db_url, echo=echo))
 
     @app.teardown_appcontext
-    def shutdown_session(exception: Exception | None = None) -> None:
+    def shutdown_session(exception: BaseException | None = None) -> None:
         session.remove()
 
 
-def now_utc():
+def now_utc() -> sqlalchemy.sql.functions.Function[datetime]:
+    """Now with UTC timezone."""
     return func.timezone("utc", func.now())

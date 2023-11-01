@@ -1,6 +1,8 @@
+"""Wikidata API."""
+
 import json
 import typing
-from typing import Any, cast
+from typing import cast
 
 import requests
 import simplejson.errors
@@ -9,7 +11,26 @@ from . import CallParams, user_agent_headers
 
 wd_api_url = "https://www.wikidata.org/w/api.php"
 
-EntityType = dict[str, Any]
+Claims = dict[str, list[dict[str, typing.Any]]]
+Sitelinks = dict[str, dict[str, typing.Any]]
+
+
+class EntityType(typing.TypedDict, total=False):
+    """Wikidata Entity."""
+
+    id: str
+    ns: str
+    type: str
+    pageid: int
+    title: str
+    labels: dict[str, typing.Any]
+    descriptions: dict[str, typing.Any]
+    claims: Claims
+    lastrevid: int
+    sitelinks: Sitelinks
+    modified: str
+    redirects: dict[str, typing.Any]
+    aliases: dict[str, list[dict[str, typing.Any]]]
 
 
 def api_get(params: CallParams) -> requests.Response:

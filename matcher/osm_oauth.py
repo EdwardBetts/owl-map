@@ -1,14 +1,15 @@
-from flask import current_app, session
-from requests_oauthlib import OAuth1Session
-from urllib.parse import urlencode
+"""OSM Authentication."""
+
+import typing
 from datetime import datetime
-from flask import g
-
-from .model import User
-
-from . import user_agent_headers
+from urllib.parse import urlencode
 
 import lxml.etree
+from flask import current_app, g, session
+from requests_oauthlib import OAuth1Session
+
+from . import user_agent_headers
+from .model import User
 
 osm_api_base = "https://api.openstreetmap.org/api/0.6"
 
@@ -67,11 +68,12 @@ def parse_userinfo_call(xml):
     }
 
 
-def get_username():
+def get_username() -> str | None:
+    """Get username of current user."""
     if "user_id" not in session:
-        return  # not authorized
+        return None  # not authorized
 
     user_id = session["user_id"]
 
     user = User.query.get(user_id)
-    return user.username
+    return typing.cast(str, user.username)

@@ -1,0 +1,13 @@
+flask
+-e git+https://github.com/maxcountryman/flask-login.git#egg=Flask-Login
+GeoIP
+lxml
+maxminddb
+requests
+sqlalchemy
+requests_oauthlib
+geoalchemy2
+simplejson
+user_agents
+num2words
+psycopg2

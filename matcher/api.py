@@ -8,6 +8,8 @@ import flask
 import geoalchemy2
 import sqlalchemy
 from sqlalchemy import and_, or_
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.orm import Mapped
 from sqlalchemy.sql import select
 
 from matcher import database, model, wikidata, wikidata_api
@@ -91,16 +93,22 @@ def make_envelope(bounds: list[float]) -> geoalchemy2.functions.ST_MakeEnvelope:
     return sqlalchemy.func.ST_MakeEnvelope(*bounds, srid)
 
 
+def parse_point(point: str) -> tuple[str, str]:
+    """Parse point from PostGIS."""
+    m = re_point.match(point)
+    assert m
+    lon, lat = m.groups()
+    assert lon and lat
+    return (lon, lat)
+
+
 def get_bbox_centroid(bbox: list[float]) -> tuple[str, str]:
     """Get centroid of bounding box."""
     bbox = make_envelope(bbox)
     centroid = database.session.query(
         sqlalchemy.func.ST_AsText(sqlalchemy.func.ST_Centroid(bbox))
     ).scalar()
-    m = re_point.match(centroid)
-    assert m
-    lon, lat = m.groups()
-    assert lon and lat
+    lon, lat = parse_point(centroid)
     return (lat, lon)
 
 
@@ -117,26 +125,17 @@ def make_envelope_around_point(
     s = select(
         [
             sqlalchemy.func.ST_AsText(
-                sqlalchemy.func.ST_Project(p, distance, sqlalchemy.func.radians(0))
-            ),
-            sqlalchemy.func.ST_AsText(
-                sqlalchemy.func.ST_Project(p, distance, sqlalchemy.func.radians(90))
-            ),
-            sqlalchemy.func.ST_AsText(
-                sqlalchemy.func.ST_Project(p, distance, sqlalchemy.func.radians(180))
-            ),
-            sqlalchemy.func.ST_AsText(
-                sqlalchemy.func.ST_Project(p, distance, sqlalchemy.func.radians(270))
-            ),
+                sqlalchemy.func.ST_Project(p, distance, sqlalchemy.func.radians(deg))
+            )
+            for deg in (0, 90, 180, 270)
         ]
     )
-    row = conn.execute(s).fetchone()
-    coords = [[float(v) for v in re_point.match(i).groups()] for i in row]
+    coords = [parse_point(i) for i in conn.execute(s).fetchone()]
 
-    north = coords[0][1]
-    east = coords[1][0]
-    south = coords[2][1]
-    west = coords[3][0]
+    north = float(coords[0][1])
+    east = float(coords[1][0])
+    south = float(coords[2][1])
+    west = float(coords[3][0])
 
     return sqlalchemy.func.ST_MakeEnvelope(west, south, east, north, srid)
 
@@ -148,9 +147,14 @@ def drop_way_area(tags: TagsType) -> TagsType:
     return tags
 
 
-def get_part_of(table_name, src_id, bbox):
+def get_part_of(
+    table_name: str, src_id: int, bbox: geoalchemy2.functions.ST_MakeEnvelope
+) -> list[dict[str, typing.Any]]:
+    """Get part of."""
     table_map = {"point": point, "line": line, "polygon": polygon}
     table_alias = table_map[table_name].alias()
+
+    tags: Mapped[postgresql.HSTORE] = polygon.c.tags
 
     s = (
         select(
@@ -165,11 +169,8 @@ def get_part_of(table_name, src_id, bbox):
                 sqlalchemy.func.ST_Intersects(bbox, polygon.c.way),
                 sqlalchemy.func.ST_Covers(polygon.c.way, table_alias.c.way),
                 table_alias.c.osm_id == src_id,
-                polygon.c.tags.has_key("name"),
-                or_(
-                    polygon.c.tags.has_key("landuse"),
-                    polygon.c.tags.has_key("amenity"),
-                ),
+                tags.has_key("name"),
+                or_(tags.has_key("landuse"), tags.has_key("amenity")),
             )
         )
         .group_by(polygon.c.osm_id, polygon.c.tags)
@@ -228,6 +229,7 @@ def get_isa_count(items: list[model.Item]) -> list[tuple[str, int]]:
             if not isa:
                 print("missing IsA:", item.qid)
                 continue
+            assert isinstance(isa, dict) and isinstance(isa["id"], str)
             isa_count[isa["id"]] += 1
 
     return isa_count.most_common()
@@ -920,7 +922,7 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
             "geojson": json.loads(geojson),
             "presets": get_presets_from_tags(shape, tags),
             "address_list": address_list,
-            "centroid": list(reversed(re_point.match(centroid).groups())),
+            "centroid": list(reversed(parse_point(centroid))),
         }
         if area is not None:
             cur["area"] = area
@@ -980,23 +982,23 @@ def check_is_street_number_first(latlng):
     flask.g.street_number_first = is_street_number_first(*latlng)
 
 
-class ItemDetailType(typing.TypedDict):
+class ItemDetailType(typing.TypedDict, total=False):
     """Details of an item as a dict."""
 
     qid: str
     label: str
-    description: str
+    description: str | None
     markers: list[dict[str, float]]
     image_list: list[str]
     street_address: list[str]
     isa_list: list[dict[str, str]]
-    closed: bool
+    closed: list[str]
     inception: str
     p1619: str
     p576: str
     heritage_designation: str
-    wikipedia: dict[str, str]
-    identifiers: list[str]
+    wikipedia: list[dict[str, str]]
+    identifiers: dict[str, list[str]]
 
 
 def item_detail(item: model.Item) -> ItemDetailType:
@@ -1036,7 +1038,7 @@ def item_detail(item: model.Item) -> ItemDetailType:
         if site.endswith("wiki") and len(site) < 8
     ]
 
-    d = {
+    d: ItemDetailType = {
         "qid": item.qid,
         "label": item.label(),
         "description": item.description(),
