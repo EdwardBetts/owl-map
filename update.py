@@ -6,10 +6,11 @@ import json
 import typing
 from time import sleep
 
-from matcher import database, model, wikidata, wikidata_api
+from matcher import model, wikidata, wikidata_api
+from matcher.database import init_db, session
 
 DB_URL = "postgresql:///matcher"
-database.init_db(DB_URL)
+init_db(DB_URL)
 
 entity_keys = {"labels", "sitelinks", "aliases", "claims", "descriptions", "lastrevid"}
 
@@ -59,7 +60,7 @@ def handle_new(change: Change) -> None:
         print(entity.keys())
         raise
     item.locations = model.location_objects(coords)
-    database.session.add(item)
+    session.add(item)
 
 
 def coords_equal(a: dict[str, typing.Any], b: dict[str, typing.Any]) -> bool:
@@ -84,8 +85,8 @@ def handle_edit(change: Change) -> None:
     entity_qid = entity.pop("id")
     if entity_qid != qid:
         print(f"{ts}: item {qid} replaced with redirect")
-        database.session.delete(item)
-        database.session.commit()
+        session.delete(item)
+        session.commit()
         return
 
     assert entity_qid == qid
@@ -101,7 +102,7 @@ def handle_edit(change: Change) -> None:
         print(f"{ts}: update item {qid}, no change to coordinates")
 
     for key in entity_keys:
-        setattr(item, key, entity[key])
+        setattr(item, key, entity[key])  # type: ignore
 
 
 def update_timestamp(timestamp: str) -> None:
@@ -138,13 +139,13 @@ def update_database() -> None:
 
         update_timestamp(timestamp)
         print("commit")
-        database.session.commit()
+        session.commit()
 
         if "continue" not in reply:
             break
 
         rccontinue = reply["continue"]["rccontinue"]
-    database.session.commit()
+    session.commit()
     print("finished")
 
 
