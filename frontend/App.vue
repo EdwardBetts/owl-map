@@ -1825,7 +1825,7 @@ export default {
       var map = L.map("map", options);
       var osm_url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
       var osm = L.tileLayer(osm_url, {
-        attribution: '© OpenStreetMap contributors',
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
       });
       osm.addTo(map);
