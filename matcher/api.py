@@ -123,7 +123,7 @@ def make_envelope_around_point(
     )
 
     s = select(
-        [
+        *[
             sqlalchemy.func.ST_AsText(
                 sqlalchemy.func.ST_Project(p, distance, sqlalchemy.func.radians(deg))
             )
@@ -158,11 +158,9 @@ def get_part_of(
 
     s = (
         select(
-            [
-                polygon.c.osm_id,
-                polygon.c.tags,
-                sqlalchemy.func.ST_Area(sqlalchemy.func.ST_Collect(polygon.c.way)),
-            ]
+            polygon.c.osm_id,
+            polygon.c.tags,
+            sqlalchemy.func.ST_Area(sqlalchemy.func.ST_Collect(polygon.c.way)),
         )
         .where(
             and_(
@@ -753,19 +751,17 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
 
     s_point = (
         select(
-            [
-                sqlalchemy.sql.expression.literal("point").label("t"),
-                point.c.osm_id,
-                point.c.tags.label("tags"),
-                sqlalchemy.func.min(
-                    sqlalchemy.func.ST_DistanceSphere(
-                        model.ItemLocation.location, point.c.way
-                    )
-                ).label("dist"),
-                sqlalchemy.func.ST_AsText(point.c.way),
-                sqlalchemy.func.ST_AsGeoJSON(point.c.way),
-                null_area,
-            ]
+            sqlalchemy.sql.expression.literal("point").label("t"),
+            point.c.osm_id,
+            point.c.tags.label("tags"),
+            sqlalchemy.func.min(
+                sqlalchemy.func.ST_DistanceSphere(
+                    model.ItemLocation.location, point.c.way
+                )
+            ).label("dist"),
+            sqlalchemy.func.ST_AsText(point.c.way),
+            sqlalchemy.func.ST_AsGeoJSON(point.c.way),
+            null_area,
         )
         .where(
             and_(
@@ -784,21 +780,19 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
 
     s_line = (
         select(
-            [
-                sqlalchemy.sql.expression.literal("line").label("t"),
-                line.c.osm_id,
-                line.c.tags.label("tags"),
-                sqlalchemy.func.min(
-                    sqlalchemy.func.ST_DistanceSphere(
-                        model.ItemLocation.location, line.c.way
-                    )
-                ).label("dist"),
-                sqlalchemy.func.ST_AsText(
-                    sqlalchemy.func.ST_Centroid(sqlalchemy.func.ST_Collect(line.c.way))
-                ),
-                sqlalchemy.func.ST_AsGeoJSON(sqlalchemy.func.ST_Collect(line.c.way)),
-                null_area,
-            ]
+            sqlalchemy.sql.expression.literal("line").label("t"),
+            line.c.osm_id,
+            line.c.tags.label("tags"),
+            sqlalchemy.func.min(
+                sqlalchemy.func.ST_DistanceSphere(
+                    model.ItemLocation.location, line.c.way
+                )
+            ).label("dist"),
+            sqlalchemy.func.ST_AsText(
+                sqlalchemy.func.ST_Centroid(sqlalchemy.func.ST_Collect(line.c.way))
+            ),
+            sqlalchemy.func.ST_AsGeoJSON(sqlalchemy.func.ST_Collect(line.c.way)),
+            null_area,
         )
         .where(
             and_(
@@ -817,23 +811,19 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
 
     s_polygon = (
         select(
-            [
-                sqlalchemy.sql.expression.literal("polygon").label("t"),
-                polygon.c.osm_id,
-                polygon.c.tags.label("tags"),
-                sqlalchemy.func.min(
-                    sqlalchemy.func.ST_DistanceSphere(
-                        model.ItemLocation.location, polygon.c.way
-                    )
-                ).label("dist"),
-                sqlalchemy.func.ST_AsText(
-                    sqlalchemy.func.ST_Centroid(
-                        sqlalchemy.func.ST_Collect(polygon.c.way)
-                    )
-                ),
-                sqlalchemy.func.ST_AsGeoJSON(sqlalchemy.func.ST_Collect(polygon.c.way)),
-                sqlalchemy.func.ST_Area(sqlalchemy.func.ST_Collect(polygon.c.way)),
-            ]
+            sqlalchemy.sql.expression.literal("polygon").label("t"),
+            polygon.c.osm_id,
+            polygon.c.tags.label("tags"),
+            sqlalchemy.func.min(
+                sqlalchemy.func.ST_DistanceSphere(
+                    model.ItemLocation.location, polygon.c.way
+                )
+            ).label("dist"),
+            sqlalchemy.func.ST_AsText(
+                sqlalchemy.func.ST_Centroid(sqlalchemy.func.ST_Collect(polygon.c.way))
+            ),
+            sqlalchemy.func.ST_AsGeoJSON(sqlalchemy.func.ST_Collect(polygon.c.way)),
+            sqlalchemy.func.ST_Area(sqlalchemy.func.ST_Collect(polygon.c.way)),
         )
         .where(
             and_(
@@ -856,7 +846,7 @@ def find_osm_candidates(item, limit=80, max_distance=450, names=None):
 
     tables = ([] if item_is_linear_feature else [s_point]) + [s_line, s_polygon]
     s = (
-        select([sqlalchemy.sql.expression.union(*tables).alias()])
+        select(sqlalchemy.sql.expression.union(*tables).alias())
         .where(dist < max_distance)
         .order_by(dist)
     )
