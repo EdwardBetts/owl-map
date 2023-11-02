@@ -19,6 +19,7 @@ from sqlalchemy.orm import (
     backref,
     column_property,
     deferred,
+    mapped_column,
     registry,
     relationship,
 )
@@ -473,7 +474,7 @@ def location_objects(
     return locations
 
 
-class MapBase(Base):
+class MapMixin:
     """Map base class."""
 
     @declared_attr
@@ -485,7 +486,7 @@ class MapBase(Base):
     admin_level = Column(String)
     boundary = Column(String)
 
-    tags: Mapped[postgresql.HSTORE]
+    tags: Mapped[postgresql.hstore] = mapped_column(postgresql.HSTORE)
 
     @declared_attr
     def way(cls):
@@ -494,19 +495,19 @@ class MapBase(Base):
         )
 
     @declared_attr
-    def kml(cls) -> sqlalchemy.orm.properties.ColumnProperty:
+    def kml(cls) -> Mapped[str]:
         """Get object in KML format."""
         return column_property(func.ST_AsKML(cls.way), deferred=True)
 
     @declared_attr
-    def geojson_str(cls) -> sqlalchemy.orm.properties.ColumnProperty:
+    def geojson_str(cls) -> Mapped[str]:
         """Get object as GeoJSON string."""
         return column_property(
             func.ST_AsGeoJSON(cls.way, maxdecimaldigits=6), deferred=True
         )
 
     @declared_attr
-    def as_EWKT(cls) -> sqlalchemy.orm.properties.ColumnProperty:
+    def as_EWKT(cls) -> Mapped[str]:
         """As EWKT."""
         return column_property(func.ST_AsEWKT(cls.way), deferred=True)
 
@@ -568,13 +569,13 @@ class MapBase(Base):
         return f"https://www.openstreetmap.org/{self.type}/{self.id}"
 
 
-class Point(MapBase):
+class Point(MapMixin, Base):
     """OSM planet point."""
 
     type = "node"
 
 
-class Line(MapBase):
+class Line(MapMixin, Base):
     """OSM planet line."""
 
     @property
@@ -588,7 +589,7 @@ class Line(MapBase):
         return cls.query.get(src_id)
 
 
-class Polygon(MapBase):
+class Polygon(MapMixin, Base):
     """OSM planet polygon."""
 
     way_area = Column(Float)
