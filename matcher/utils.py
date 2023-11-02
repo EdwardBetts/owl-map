@@ -198,6 +198,8 @@ def format_wikibase_time(v: WikibaseTime) -> str | None:
             return date.fromisoformat(t[1:8] + "-01").strftime("%B %Y")
         case 9:  # year
             return t[1:5]
+        case 8:  # decade
+            return f"{t[1:4]}0s"
         case 7:  # century
             century = ((int(t[:5]) - 1) // 100) + 1
             ordinal_num: str = num2words(abs(century), to="ordinal_num")
