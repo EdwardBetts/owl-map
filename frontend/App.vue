@@ -644,6 +644,7 @@
                 <span v-if="osm.name">
                   {{ osm.name }}
                   <span class="badge bg-success" v-if="osm.name_match">name match</span>
+                  <span class="badge bg-danger" v-if="osm.tags['disused'] == 'yes' || isDisused(osm.tags)">disused</span>
                 </span>
                 <template v-if="show_presets && osm.presets.length">
                   <template v-if="osm.name"><br></template>
@@ -1026,6 +1027,9 @@ export default {
     }
   },
   methods: {
+    isDisused(tags) {
+      return Object.keys(tags).some(key => key.startsWith('disused:'));
+    },
     wikipedia_link(lang, title) {
       var norm_title = title.replaceAll(" ", "_");
       return `https://${lang}.wikipedia.org/wiki/${norm_title}`;
