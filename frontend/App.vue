@@ -276,7 +276,7 @@
                 :href="hit_url(hit)"
                 @mouseenter="show_hit_on_map(hit)"
                 @click.prevent="visit(hit)">
-              {{ hit.name }} ({{ hit.label }})
+              {{ hit.name }} <span class="badge bg-info">{{ hit.label }}</span>
             </a>
           </div>
           <div class="alert alert-info mt-2" v-if="hits.length">
@@ -368,26 +368,39 @@
       <div class="card m-2" v-if="!view_edits && isa_list.length">
         <div class="card-body">
           <div class="h5 card-title">Map key</div>
-          <ui class="list-group">
+          <ul class="list-group">
             <li class="list-group-item">
-              <i style="background: #a23337; color: white" class="p-1 fa fa-wikidata"></i>
+              <i style="background: #a23337; color: white" class="p-1 fa fa-chain-broken"></i>
               Wikidata item without OSM link
             </li>
             <li class="list-group-item">
-              <i style="background: #6dae40; color: white" class="p-1 fa fa-wikidata"></i>
+              <i style="background: #6dae40; color: white" class="p-1 fa fa-link"></i>
               Wikidata item with OSM link
             </li>
             <li class="list-group-item">
               <i style="background: #f5bb39; color: white" class="p-1 fa fa-map"></i>
               Linked OSM object
             </li>
-          </ui>
+          </ul>
         </div>
       </div>
 
+      <div class="m-2" v-if="!view_edits && isa_list.length">
 
+<ul class="nav nav-pills" id="myTab" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="filter-tab" role="tab" @click.stop="tab='filters'" :class="{ active: tab == 'filters' }">Map filters</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="item-list-tab" role="tab" @click.stop="tab='items'" :class="{ active: tab == 'items' }">Items</button>
+  </li>
+</ul>
 
-      <div class="card m-2" v-if="!view_edits && isa_list.length">
+<div class="tab-content" id="myTabContent">
+
+  <div class="tab-pane active" id="filters" v-if="tab=='filters'">
+      <div class="card my-2">
+
         <div class="card-body">
           <div class="h5 card-title">OSM/Wikidata link status</div>
           <div class="list-group">
@@ -409,7 +422,7 @@
         </div>
       </div>
 
-      <div class="card m-2" v-if="!view_edits && isa_list.length" id="isa-card">
+      <div class="card my-2" id="isa-card">
         <div class="card-body">
           <div class="h5 card-title">item types</div>
           <div>
@@ -430,6 +443,46 @@
 
         </div>
       </div>
+
+
+</div>
+
+  <div class="tab-pane active" id="items" v-if="tab=='items'">
+  <ul class="list-group">
+    <li v-for="(item, qid) in items" class="list-group-item" @click.stop="open_item(qid)"
+        :class="{active: highlight_item==item}"
+        @mouseover="add_highlight(qid)" @mouseleave="drop_highlight(qid)">
+      <div v-if="item.wikidata">
+      <div>
+        <span class="fw-bold">
+        {{ item.wikidata.label }}
+        </span>
+        ({{ qid }})
+      <span class="badge bg-success" v-if="item.osm">Linked</span>
+      <span class="badge bg-danger" v-else>Not linked</span>
+      </div>
+      <div>
+        {{ item.wikidata.description }}
+      </div>
+      <div>
+        <div class="fw-bold">item type</div>
+        <div v-for="isa in item.wikidata.isa_list">
+          {{ isa.label }} ({{ isa.qid }})
+        </div>
+      </div>
+
+      </div>
+      <span v-else>
+        {{ qid }}
+      </span>
+    </li>
+  </ul>
+
+</div>
+
+
+    </div>
+    </div>
     </div>
 
     <div class="card m-2" id="detail-card" v-if="current_item">
@@ -485,11 +538,6 @@
             </span>
           </span>
 
-          <span v-if="wd_item.street_address.length">
-            <br><strong>street address</strong>
-            <br>{{wd_item.street_address[0]}}
-          </span>
-
           <span v-if="wd_item.inception.length">
             <br><strong>inception</strong>
             <br>{{wd_item.inception.join('; ')}}
@@ -533,7 +581,6 @@
             </div>
           </div>
 
-
           <span v-if="wd_item.image_list.length">
             <strong>Image from Wikidata</strong><br/>
             <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal">
@@ -554,7 +601,28 @@
             </a>
           </span>
 
-        </div></div>
+        </div>
+        </div>
+
+        <div class="row">
+          <div class="col-xl-12">
+            <span v-if="Object.keys(wd_item.identifiers).length !== 0">
+              <strong>identifiers</strong>
+              <div v-for="(values, label) in wd_item.identifiers">
+                {{ label }}: {{ values.join("; ") }}
+              </div>
+            </span>
+
+            <span v-if="wd_item.street_address.length">
+              <strong>street address</strong>
+              <br>{{wd_item.street_address[0]}}
+            </span>
+
+
+
+          </div>
+        </div>
+
         </div>
 
         <div class="form-check form-switch">
@@ -739,27 +807,36 @@
 </template>
 
 <script>
+import 'bootstrap';
+import { Modal } from 'bootstrap';
+import 'bootstrap/dist/css/bootstrap.css';
 import L from "leaflet";
+import 'leaflet/dist/leaflet.css';
 import { ExtraMarkers } from "leaflet-extra-markers";
+import 'leaflet-extra-markers/dist/css/leaflet.extra-markers.min.css';
 import axios from "redaxios";
-import {unref, toRaw} from 'vue';
+import { toRaw } from 'vue';
+
+import 'fork-awesome/css/fork-awesome.css';
+
+L.Icon.Default.imagePath = "/static/leaflet/images/";
 
 var redMarker = ExtraMarkers.icon({
-  icon: "fa-wikidata",
+  icon: "fa-chain-broken",
   markerColor: "red",
   shape: "circle",
   prefix: "fa",
 });
 
 var greenMarker = ExtraMarkers.icon({
-  icon: "fa-wikidata",
+  icon: "fa-link",
   markerColor: "green-light",
   shape: "circle",
   prefix: "fa",
 });
 
 var greenDarkMarker = ExtraMarkers.icon({
-  icon: "fa-wikidata",
+  icon: "fa-link",
   markerColor: "green-dark",
   shape: "circle",
   prefix: "fa",
@@ -808,6 +885,7 @@ export default {
   data() {
     return {
       api_base_url: "https://map.osm.wikidata.link",
+      // api_base_url: "http://localhost:5000",
       tag_or_key_list: [],
       search_text: "",
       load_button_pressed: false,
@@ -864,6 +942,8 @@ export default {
       map_update_number: 0,
       api_call_error_message: undefined,
       api_call_error_traceback: undefined,
+      tab: "filters",
+      highlight_item: undefined,
     };
   },
   computed: {
@@ -1084,7 +1164,7 @@ export default {
       var reply = error.data;
       this.api_call_error_message = reply.error;
       this.api_call_error_traceback = reply.traceback;
-      var error_modal = new bootstrap.Modal(this.$refs.error_modal);
+      var error_modal = new Modal(this.$refs.error_modal);
 
       this.$refs.error_modal.addEventListener('hidden.bs.modal', function (event) {
         this.api_call_error_message = undefined;
@@ -1336,6 +1416,7 @@ export default {
         });
       }
       this.add_hover_circles(item);
+      this.highlight_item = item;
     },
     drop_highlight(qid) {
       var item = this.items[qid];
@@ -1349,6 +1430,7 @@ export default {
         });
       }
       this.drop_hover_circles();
+      this.highlight_item = undefined;
     },
     map_moved() {
       if (this.mode == "search") return;
@@ -1374,7 +1456,7 @@ export default {
     },
     update_map_path() {
       var state = this.current_state();
-      history.replaceState(state, '', this.build_map_path());
+      // history.replaceState(state, '', this.build_map_path());
     },
     open_item(qid, marker) {
       this.close_edit_list();
@@ -1834,6 +1916,8 @@ export default {
       });
       osm.addTo(map);
 
+      this.test_api_error();
+
       var bounds;
       if (this.startRadius) {
         var bounds = L.latLng(this.center).toBounds(this.startRadius * 2000);
@@ -1859,6 +1943,7 @@ export default {
       }
 
       window.onpopstate = this.onpopstate;
+
     });
 
   },
