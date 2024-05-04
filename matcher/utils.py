@@ -188,9 +188,10 @@ class WikibaseTime(typing.TypedDict):
 
 
 def format_wikibase_time(v: WikibaseTime) -> str | None:
-    """Format wikibase time value into human readable string."""
+    """Format Wikibase time value into human readable string."""
     t = v["time"]
 
+    ordinal_num: str
     match v["precision"]:
         case 11:  # year, month and day
             return date.fromisoformat(t[1:11]).strftime("%-d %B %Y")
@@ -202,7 +203,11 @@ def format_wikibase_time(v: WikibaseTime) -> str | None:
             return f"{t[1:4]}0s"
         case 7:  # century
             century = ((int(t[:5]) - 1) // 100) + 1
-            ordinal_num: str = num2words(abs(century), to="ordinal_num")
+            ordinal_num = num2words(abs(century), to="ordinal_num")
             return f"{ordinal_num} {century}{' BC' if century < 0 else ''}"
+        case 6:  # millennium
+            millennium = ((int(t[:5]) - 1) // 1000) + 1
+            ordinal_num = num2words(abs(millennium), to="ordinal_num")
+            return f"{ordinal_num} millennium{' BC' if millennium < 0 else ''}"
         case _:  # not handled
             return None
