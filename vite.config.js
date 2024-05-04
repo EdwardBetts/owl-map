@@ -9,7 +9,7 @@ export default defineConfig({
   build: {
     target: 'esnext',
     lib: {
-      entry: path.resolve(__dirname, 'src/main.js'),
+      entry: path.resolve(__dirname, 'frontend/main.js'),
       name: 'OWL',
       fileName: (format) => `owl.${format}.js`
     },
