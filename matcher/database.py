@@ -10,7 +10,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 session: sqlalchemy.orm.scoping.scoped_session = scoped_session(sessionmaker())
 
-timeout = 2_000  # 20 seconds
+timeout = 20_000  # 20 seconds
 
 
 def init_db(db_url: str, echo: bool = False) -> None:
