@@ -1916,7 +1916,7 @@ export default {
       });
       osm.addTo(map);
 
-      this.test_api_error();
+      // this.test_api_error();
 
       var bounds;
       if (this.startRadius) {
