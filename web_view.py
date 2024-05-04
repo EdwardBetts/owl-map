@@ -2,8 +2,11 @@
 
 """Views for the web app."""
 
+import inspect
 import json
 import re
+import sys
+import traceback
 import typing
 from time import sleep, time
 
@@ -33,8 +36,6 @@ from matcher import (
     wikidata_api,
 )
 from matcher.data import property_map
-
-# from werkzeug.debug.tbtools import get_current_traceback
 
 StrDict = dict[str, typing.Any]
 
@@ -73,6 +74,47 @@ def global_user() -> None:
 
 def dict_repr_values(d):
     return {key: repr(value) for key, value in d.items()}
+
+
+@app.errorhandler(werkzeug.exceptions.InternalServerError)
+def exception_handler(
+    e: werkzeug.exceptions.InternalServerError,
+) -> tuple[str | werkzeug.wrappers.Response, int]:
+    """Handle exception."""
+    exec_type, exc_value, current_traceback = sys.exc_info()
+    assert exc_value
+    tb = werkzeug.debug.tbtools.DebugTraceback(exc_value)
+
+    # summary = tb.render_traceback_html(include_title=False)
+
+    last_frame = list(traceback.walk_tb(current_traceback))[-1][0]
+    last_frame_args = inspect.getargs(last_frame.f_code)
+    if flask.request.path.startswith("/api/"):
+        return (
+            cors_jsonify(
+                {
+                    "success": False,
+                    "error": tb._te.exc_type.__name__,
+                    "traceback": tb.render_traceback_text(),
+                    "locals": dict_repr_values(last_frame.f_locals),
+                    "last_function": {
+                        "name": last_frame.f_code.co_name,
+                        "args": repr(last_frame_args),
+                    },
+                }
+            ),
+            500,
+        )
+
+    return (
+        flask.render_template(
+            "show_error.html",
+            tb=tb,
+            last_frame=last_frame,
+            last_frame_args=last_frame_args,
+        ),
+        500,
+    )
 
 
 def cors_jsonify(*args, **kwargs) -> flask.Response:
