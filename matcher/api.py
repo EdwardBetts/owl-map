@@ -1020,7 +1020,7 @@ def item_detail(item: model.Item) -> ItemDetailType:
         )
 
     isa_items = [get_item(isa["numeric-id"]) for isa in item.get_isa()]
-    isa_lookup = {isa.qid: isa for isa in isa_items}
+    isa_lookup = {isa.qid: isa for isa in isa_items if isa}
 
     wikipedia_links = [
         {"lang": site[:-4], "title": link["title"]}
