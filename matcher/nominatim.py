@@ -118,7 +118,7 @@ def get_hit_name(hit: Hit) -> str:
 
 def get_hit_label(hit: Hit) -> str:
     """Parse hit and generate label."""
-    tags = hit["extratags"]
+    tags = hit["extratags"] or {}
     designation = tags.get("designation")
     category = hit["category"]
     hit_type = hit["type"]
