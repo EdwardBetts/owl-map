@@ -6,7 +6,7 @@ from collections import defaultdict
 from typing import Any
 
 import sqlalchemy
-from flask_login import UserMixin
+from flask_login import UserMixin  # type: ignore
 from geoalchemy2 import Geometry
 from sqlalchemy import func
 from sqlalchemy.dialects import postgresql
@@ -138,9 +138,11 @@ class Item(Base):
         """List of claims for given Wikidata property ID."""
         claims = typing.cast(wikidata.Claims, self.claims)
         return [
-            i["mainsnak"]["datavalue"]["value"]
-            if "datavalue" in i["mainsnak"]
-            else None
+            (
+                i["mainsnak"]["datavalue"]["value"]
+                if "datavalue" in i["mainsnak"]
+                else None
+            )
             for i in claims.get(pid, [])
         ]
 
